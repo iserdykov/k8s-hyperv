@@ -40,8 +40,8 @@ create-machine -switch 'switch' -vmname 'node2' -cpus 4 -mem 4GB -hdd 40GB `
 update-etc-hosts -cblock '192.168.0'
 
 # 5. when done, delete machines
-delete-machine -name 'minion2'
-delete-machine -name 'minion1'
+delete-machine -name 'node2'
+delete-machine -name 'node1'
 delete-machine -name 'master'
 
 # 6. when done, delete switch/network

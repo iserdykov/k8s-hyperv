@@ -357,8 +357,8 @@ function examples() {
   update-etc-hosts -cblock '192.168.0'
 
   # 5. when done, delete machines
-  delete-machine -name 'minion2'
-  delete-machine -name 'minion1'
+  delete-machine -name 'node2'
+  delete-machine -name 'node1'
   delete-machine -name 'master'
 
   # 6. when done, delete switch/network
