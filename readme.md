@@ -22,11 +22,15 @@ create-private-net -natnet 'natnet' -switch 'switch' -cblock '192.168.0'
 # mac3 = ''
 
 # 2. create machines (for DHCP use -cblock $null -ip $null -mac your_saved_mac_address)
-create-machine -switch 'switch' -vmname 'master' -cpus 4 -mem 4GB -hdd 40GB -vhdxtmpl $vhdxtmpl -cblock '192.168.0' -ip '10' #-mac mac1
-create-machine -switch 'switch' -vmname 'node1' -cpus 4 -mem 4GB -hdd 40GB -vhdxtmpl $vhdxtmpl -cblock '192.168.0' -ip '11' #-mac mac2
-create-machine -switch 'switch' -vmname 'node2' -cpus 4 -mem 4GB -hdd 40GB -vhdxtmpl $vhdxtmpl -cblock '192.168.0' -ip '12' #-mac mac3
+create-machine -switch 'switch' -vmname 'master' -cpus 4 -mem 4GB -hdd 40GB `
+    -vhdxtmpl $vhdxtmpl -cblock '192.168.0' -ip '10' #-mac mac1
+create-machine -switch 'switch' -vmname 'node1' -cpus 4 -mem 4GB -hdd 40GB `
+    -vhdxtmpl $vhdxtmpl -cblock '192.168.0' -ip '11' #-mac mac2
+create-machine -switch 'switch' -vmname 'node2' -cpus 4 -mem 4GB -hdd 40GB `
+    -vhdxtmpl $vhdxtmpl -cblock '192.168.0' -ip '12' #-mac mac3
 
-# 3. open Hyper-V manager, and wait until all VMs are auto-stopped, then start them again (select "Continue"), and you can SSH into them
+# 3. open Hyper-V manager, and wait until all VMs are auto-stopped,
+#    then start them again (select "Continue"), and you can SSH into them
 
 # 4. optionally, update /etc/hosts so you can e.g. `ssh user@master`
 update-etc-hosts -cblock '192.168.0'
