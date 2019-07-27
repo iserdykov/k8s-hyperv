@@ -10,6 +10,10 @@ Start by reading the [hyper-v.ps1](hyper-v.ps1) script.
 
 ```powershell
 
+# Prepare the image
+$vhdxtmpl = prepare-vhdx-tmpl -url `
+  'http://cloud-images.ubuntu.com/releases/server/18.04/release/ubuntu-18.04-server-cloudimg-amd64.img'
+
 # 1. create switch/network
 create-public-net -switch 'switch' -adapter 'Wi-Fi'
 # --or--
