@@ -8,7 +8,7 @@
 # 1. copy this script to your working directory, VMs/images will be stored to ./tmp
 #
 #    cd your-vm-work-dir
-#    invoke-webrequest https://github.com/youurayy/v4/raw/master/k8s-hyperv.ps1 -usebasicparsing -outfile k8s-hyperv.ps1
+#    invoke-webrequest https://raw.githubusercontent.com/youurayy/k8s-hyperv/master/hyper-v.ps1 -usebasicparsing -outfile k8s-hyperv.ps1
 #    -or-
 #    git clone git@github.com:youurayy/k8s-hyperv.git
 #    cd k8s-hyperv
