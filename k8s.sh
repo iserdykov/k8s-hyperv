@@ -1,4 +1,7 @@
 
+
+# **** WORK IN PROGRESS ****
+
 # this file is a scratch-pad - it is not supposed to be run directly
 set -e
 
