@@ -149,6 +149,8 @@ packages:
   - kubeadm
 
 runcmd:
+  # https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1766857
+  - mkdir -p /usr/libexec/hypervkvpd && ln -s /usr/sbin/hv_get_dns_info /usr/sbin/hv_get_dhcp_info /usr/libexec/hypervkvpd
   - systemctl enable docker
   - systemctl enable kubelet
 
@@ -192,7 +194,7 @@ function create-private-net($natnet, $switch, $cblock) {
 function create-machine($switch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock, $ip, $mac) {
   $vmdir = "$tmp\$vmname"
   $vhdx = "$tmp\$vmname\$vmname.vhdx"
-  new-item -itemtype directory -force -path $vmdir
+  new-item -itemtype directory -force -path $vmdir | out-null
   copy-item -path $vhdxtmpl -destination $vhdx -force
   resize-vhd -path $vhdx -sizebytes $hdd
 
