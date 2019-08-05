@@ -3,6 +3,7 @@
 # ---------------------------------
 # Practice real Kubernetes configurations on a local multi-node cluster.
 # Tested on: PowerShell 5.1 on Windows 10 Pro 1903, guest images Ubuntu 18.04 and 19.04.
+# Note: DHCP/public-net not tested yet.
 
 # PREPARATION
 # 1. copy this script to your working directory, VMs/images will be stored to ./tmp

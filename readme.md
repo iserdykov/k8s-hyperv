@@ -57,4 +57,4 @@ delete-nodes($num)
 
 ```
 
-#### License: http://dbad-license.org/
+#### License: https://www.apache.org/licenses/LICENSE-2.0
