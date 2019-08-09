@@ -81,7 +81,6 @@ if(!$cblock) {
 return @"
 instance-id: id-$($vmname)
 local-hostname: $($vmname)
-
 "@
 } else {
 return @"
@@ -94,7 +93,6 @@ network-interfaces: |
   broadcast $($cblock).255
   gateway $($cblock).1
 local-hostname: $vmname
-
 "@
 }
 }
@@ -164,7 +162,6 @@ runcmd:
 power_state:
   timeout: 10
   mode: poweroff
-
 "@
 }
 
@@ -316,13 +313,11 @@ $user = $env:USERNAME
 # https://wiki.ubuntu.com/DiscoDingo/ReleaseNotes
 $imageurl = 'http://cloud-images.ubuntu.com/releases/server/19.04/release/ubuntu-19.04-server-cloudimg-amd64.img'
 
-
-
 $srcimg = "$tmp\$(split-path $imageurl -leaf)"
 $vhdxtmpl = "$(basename $srcimg).vhdx"
 #write-host "`r`n Using user: $user `r`n  and image: $vhdxtmpl `r`n"
 
-$cidr = '10.10.0'
+
 
 # EDITR HERE 3.
 # copy and paste the following commands as necessary (easier when this script is loaded into the "PowerShell ISE")
@@ -355,6 +350,11 @@ $switch = 'switch' # private or public switch name
 $natnet = 'natnet' # private net nat net name
 $adapter = 'Wi-Fi' # public net adapter name
 
+$cidr = switch ($nettype) {
+  'private' { '10.10.0' }
+  'public' { $null }
+}
+
 $cpus = 4
 $ram = 4GB
 $hdd = 40GB
@@ -385,7 +385,11 @@ switch -regex ($args) {
   }
   hosts {
     # optionally, update /etc/hosts so you can e.g. `ssh user@master`
-    update-etc-hosts -cblock $cidr
+    # todo check if already there -or- remove using magic
+    switch ($nettype) {
+      'private' { update-etc-hosts -cblock $cidr }
+      'public' { echo "not supported for public net - use dhcp"  }
+    }
   }
   macs {
     $cnt = 10
@@ -396,13 +400,11 @@ switch -regex ($args) {
     }
   }
   master {
-    # use -cblock $null for DHCP
     create-machine -switch $switch -vmname 'master' -cpus $cpus -mem $ram -hdd $hdd `
       -vhdxtmpl $vhdxtmpl -cblock $cidr -ip '10' -mac $macs[0]
   }
   # node1, node2, ...
   '(^node(?<number>\d+)$)' {
-    # use -cblock $null for DHCP
     $num = [int]$matches.number
     $name = "node$($num)"
     create-machine -switch $switch -vmname $name -cpus $cpus -mem $ram -hdd $hdd `
