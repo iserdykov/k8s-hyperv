@@ -3,20 +3,21 @@
 # **** WORK IN PROGRESS ****
 
 # this file is a scratch-pad - it is not supposed to be run directly
-set -e
 
+
+# when using Bash on Cygwin or Mac, setup the local env:
 cd ~
 mkdir .kube
 scp ${user}@master:/etc/kubernetes/admin.conf ~/.kube/config
 
+
+# setup the k8s cluseter (Calico)
 kubeadm init --pod-network-cidr=192.168.0.0/16
 kubeadm token create --print-join-command
 kubeadm join ...
 
-
 # auth token for dashboard:
 kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep k8s-admin | awk '{print $1}')
-
 
 kubectl proxy
 
