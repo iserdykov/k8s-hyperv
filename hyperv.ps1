@@ -1,25 +1,50 @@
+#!/usr/bin/env powershell
+# For usage overview, read the readme.md at https://github.com/youurayy/k8s-hyperv
+# License: https://www.apache.org/licenses/LICENSE-2.0
 
-#    cd your-vm-work-dir
-#    invoke-webrequest https://raw.githubusercontent.com/youurayy/k8s-hyperv/master/hyper-v.ps1 -usebasicparsing -outfile k8s-hyperv.ps1
-#    -or-
-#    git clone git@github.com:youurayy/k8s-hyperv.git
-#    cd k8s-hyperv
-#
-# NOTE uninstall Docker for Windows (if you plan to manage the k8s from your localhost)
-#
-# 6. setup kubernetes
-#    master:# sudo kubeadm init
-#    workers:# sudo kubeadm join .....
-#    host:# scp ubuntu@master:/etc/kubernetes/admin.conf ~/.kube/config
-#    host:# kubectl ...
-# NOTES:
-# - your ssh auth key is taken from your $HOME\.ssh\id_rsa.pub -- edit below if necessary
 
-# NOTE: Default CIDRs to avoid in host networking:
-# - Calico (192.168.0.0/16<->192.168.255.255)
-# - Weave Net (10.32.0.0/12<->10.47.255.255)
-# - Flannel (10.244.0.0/16<->10.244.255.255)
-# ... so we default to 10.10.0.0/24<->10.10.0.255 for convenience
+# ---------------------------SETTINGS------------------------------------
+
+$user = $env:USERNAME
+
+# kernel 4.15
+# https://wiki.ubuntu.com/BionicBeaver/ReleaseNotes
+# $imageurl = 'http://cloud-images.ubuntu.com/releases/server/18.04/release/ubuntu-18.04-server-cloudimg-amd64.img'
+
+# kernel 5.0
+# https://wiki.ubuntu.com/DiscoDingo/ReleaseNotes
+$imageurl = 'http://cloud-images.ubuntu.com/releases/server/19.04/release/ubuntu-19.04-server-cloudimg-amd64.img'
+
+$nettype = 'private' # private/public
+$switch = 'switch' # private or public switch name
+$natnet = 'natnet' # private net nat net name
+$adapter = 'Wi-Fi' # public net adapter name
+
+$cpus = 4
+$ram = 4GB
+$hdd = 40GB
+
+$cidr = switch ($nettype) {
+  'private' { '10.10.0' }
+  'public' { $null }
+}
+
+$macs = @(
+  '0225EA2C9AE7', # master
+  '02A254C4612F', # node1
+  '02FBB5136210', # node2
+  '02FE66735ED6', # node3
+  '021349558DC7', # node4
+  '0288F589DCC3', # node5
+  '02EF3D3E1283', # node6
+  '0225849ADCBB', # node7
+  '02E0B0026505', # node8
+  '02069FBFC2B0', # node9
+  '02F7E0C904D0' # node10
+)
+
+# ----------------------------------------------------------------------
+
 
 # switch to the script directory
 cd $PSScriptRoot | out-null
@@ -238,6 +263,7 @@ function prepare-vhdx-tmpl($url, $srcimg, $vhdxtmpl) {
   if (!(test-path $vhdxtmpl)) {
     qemu-img.exe convert $srcimg -O vhdx -o subformat=dynamic $vhdxtmpl
   }
+  return
 }
 
 function update-etc-hosts($cblock) {
@@ -271,52 +297,16 @@ function delete-nodes($num) {
   }
 }
 
-$user = $env:USERNAME
+function get-image-vars($imageurl) {
+  $srcimg = "$tmp\$(split-path $imageurl -leaf)"
+  $vhdxtmpl = "$(basename $srcimg).vhdx"
+  return $srcimg, $vhdxtmpl
 
-# kernel 4.15
-# https://wiki.ubuntu.com/BionicBeaver/ReleaseNotes
-# $imageurl = 'http://cloud-images.ubuntu.com/releases/server/18.04/release/ubuntu-18.04-server-cloudimg-amd64.img'
-
-# kernel 5.0
-# https://wiki.ubuntu.com/DiscoDingo/ReleaseNotes
-$imageurl = 'http://cloud-images.ubuntu.com/releases/server/19.04/release/ubuntu-19.04-server-cloudimg-amd64.img'
-
-$srcimg = "$tmp\$(split-path $imageurl -leaf)"
-$vhdxtmpl = "$(basename $srcimg).vhdx"
-
-# choose either public or private net
-#      (public: VMs will be accessible on your Wi-Fi; will get IPs from DHCP)
-#      (private: VMs will need port fwd to be accessible from other than your local machine; will need IP assign)
-
-$macs = @(
-  '0225EA2C9AE7', # master
-  '02A254C4612F', # node1
-  '02FBB5136210', # node2
-  '02FE66735ED6', # node3
-  '021349558DC7', # node4
-  '0288F589DCC3', # node5
-  '02EF3D3E1283', # node6
-  '0225849ADCBB', # node7
-  '02E0B0026505', # node8
-  '02069FBFC2B0', # node9
-  '02F7E0C904D0' # node10
-)
+}
 
 echo ''
 
-$nettype = 'private' # private/public
-$switch = 'switch' # private or public switch name
-$natnet = 'natnet' # private net nat net name
-$adapter = 'Wi-Fi' # public net adapter name
-
-$cidr = switch ($nettype) {
-  'private' { '10.10.0' }
-  'public' { $null }
-}
-
-$cpus = 4
-$ram = 4GB
-$hdd = 40GB
+$srcimg, $vhdxtmpl = get-image-vars($imageurl)
 
 if($args.count -eq 0) {
   # $args = @( 'help' )
@@ -327,16 +317,13 @@ switch -regex ($args) {
   help {
     echo "help"
   }
+  install {
+    choco install kubernetes-cli kubernetes-helm qemu-img
+  }
   config {
     echo " user:  $user"
     echo " image: $vhdxtmpl"
     echo " cidr:  $cidr.0/24"
-  }
-  install {
-    choco install kubernetes-cli kubernetes-helm qemu-img
-  }
-  info {
-    # show nodes info
   }
   image {
     prepare-vhdx-tmpl -url $imageurl -srcimg $srcimg -vhdxtmpl $vhdxtmpl
@@ -373,6 +360,9 @@ switch -regex ($args) {
     $name = "node$($num)"
     create-machine -switch $switch -vmname $name -cpus $cpus -mem $ram -hdd $hdd `
       -vhdxtmpl $vhdxtmpl -cblock $cidr -ip "$($num + 10)" -mac $macs[$num]
+  }
+  info {
+    # show nodes info
   }
   save {
     #get-vm
