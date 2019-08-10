@@ -1,65 +1,25 @@
 
-# Kubernetes Cluster on Hyper-V
-# ---------------------------------
-# Practice real Kubernetes configurations on a local multi-node cluster.
-# Tested on: PowerShell 5.1 on Windows 10 Pro 1903, guest images Ubuntu 18.04 and 19.04.
-# Note: DHCP/public-net not tested yet.
-
-# PREPARATION
-# 1. copy this script to your working directory, VMs/images will be stored to ./tmp
-#
 #    cd your-vm-work-dir
 #    invoke-webrequest https://raw.githubusercontent.com/youurayy/k8s-hyperv/master/hyper-v.ps1 -usebasicparsing -outfile k8s-hyperv.ps1
 #    -or-
 #    git clone git@github.com:youurayy/k8s-hyperv.git
 #    cd k8s-hyperv
 #
-# 2. uninstall Docker for Windows (if you plan to manage the k8s from your localhost)
-#
-# 3. choco install kubernetes-cli kubernetes-helm qemu-img
-#
-# 4. if you have cygwin: cyg-get mkisofs
-#    (if you have cygwin but not cyg-get: choco install cyg-get)
-$mkisofs = 'C:\tools\cygwin\bin\genisoimage.exe'
-#
-# 4. otherwise: `choco install cdrtfe`, and:
-#
-#    $cdrtfe = 'C:\Program Files (x86)\cdrtfe\tools'
-#    new-item -itemtype symboliclink -path "$cdrtfe\cdrtools" -name "cygwin1.dll" -value "$cdrtfe\cygwin\cygwin1.dll"
-#    $mkisofs = "$cdrtfe\cdrtools\mkisofs.exe"
-
-# USAGE
-# 1. load this script in (Admin) PowerShell ISE, and review/edit it (---> see bottom of this file "START HERE")
-#
-# 2. exec in the ISE console: Set-ExecutionPolicy RemoteSigned  # click [Only Next]
-#
-# 3. run the script (F5), it will download and prepare the selected image
-#
-# 4. create public or private network
-#
-# 5. create the machines
+# NOTE uninstall Docker for Windows (if you plan to manage the k8s from your localhost)
 #
 # 6. setup kubernetes
 #    master:# sudo kubeadm init
 #    workers:# sudo kubeadm join .....
 #    host:# scp ubuntu@master:/etc/kubernetes/admin.conf ~/.kube/config
 #    host:# kubectl ...
-#
-# 7. use k8s
-#
-# 8. use the delete-* functions to delete the VMs and the network when not needed anymore
-
 # NOTES:
-# - if you change the code, hit "Run (F5)" in the PowerShell ISE to save & reload
 # - your ssh auth key is taken from your $HOME\.ssh\id_rsa.pub -- edit below if necessary
 
 # NOTE: Default CIDRs to avoid in host networking:
 # - Calico (192.168.0.0/16<->192.168.255.255)
 # - Weave Net (10.32.0.0/12<->10.47.255.255)
 # - Flannel (10.244.0.0/16<->10.244.255.255)
-#
 # ... so we default to 10.10.0.0/24<->10.10.0.255 for convenience
-
 
 # switch to the script directory
 cd $PSScriptRoot | out-null
@@ -70,10 +30,9 @@ $PSDefaultParameterValues['*:ErrorAction']='Stop'
 
 # create ./tmp in the current directory
 $tmp = 'tmp'
-if (!(test-path $tmp)) {mkdir $tmp}
-
-
-
+if (!(test-path $tmp)) {
+  mkdir $tmp | out-null
+}
 
 # note: network configs version 1 an 2 didn't work
 function get-metadata($vmname, $cblock, $ip) {
@@ -115,6 +74,8 @@ users:
     sudo: [ 'ALL=(ALL) NOPASSWD:ALL' ]
     groups: [ sudo, docker ]
     shell: /bin/bash
+    # lock_passwd: false
+    # passwd: '\$6\$rounds=4096\$byY3nxArmvpvOrpV\$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
 
 write_files:
   - path: /etc/resolv.conf
@@ -165,7 +126,6 @@ power_state:
 "@
 }
 
-
 # write_files:
 #   - path: /etc/apt/preferences.d/docker-pin
 #     content: |
@@ -184,7 +144,6 @@ power_state:
 #  - docker-ce-cli
 #  - containerd.io
 
-
 function create-public-net($switch, $adapter) {
   new-vmswitch -name $switch -allowmanagementos $true -netadaptername $adapter
 }
@@ -195,6 +154,37 @@ function create-private-net($natnet, $switch, $cblock) {
   new-netnat -name $natnet -internalipinterfaceaddressprefix "$($cblock).0/24"
 }
 
+function produce-iso-contents($vmname, $cblock, $ip) {
+  md $tmp\$vmname\cidata -ea 0 | out-null
+  set-content $tmp\$vmname\cidata\meta-data ([byte[]][char[]] `
+    "$(get-metadata -vmname $vmname -cblock $cblock -ip $ip)") -encoding byte
+  set-content $tmp\$vmname\cidata\user-data ([byte[]][char[]] `
+    "$(get-userdata -vmname $vmname)") -encoding byte
+}
+
+function make-iso($vmname) {
+  $fsi = new-object -ComObject IMAPI2FS.MsftFileSystemImage
+  $fsi.FileSystemsToCreate = 3
+  $fsi.VolumeName = 'cidata'
+  $path = (resolve-path -path ".\$tmp\$vmname\cidata").path
+  $fsi.Root.AddTreeWithNamedStreams($path, $false)
+  $isopath = (resolve-path -path ".\$tmp\$vmname\$vmname.iso").path
+  $res = $fsi.CreateResultImage()
+  $cp = New-Object CodeDom.Compiler.CompilerParameters
+  $cp.CompilerOptions = "/unsafe"
+  if (!('ISOFile' -as [type])) {
+    Add-Type -CompilerParameters $cp -TypeDefinition @"
+      public class ISOFile {
+        public unsafe static void Create(string iso, object stream, int blkSz, int blkCnt) {
+          int bytes = 0; byte[] buf = new byte[blkSz];
+          var ptr = (System.IntPtr)(&bytes); var o = System.IO.File.OpenWrite(iso);
+          var i = stream as System.Runtime.InteropServices.ComTypes.IStream;
+          if (o != null) { while (blkCnt-- > 0) { i.Read(buf, blkSz, ptr); o.Write(buf, 0, bytes); }
+            o.Flush(); o.Close(); }}}
+"@ }
+  [ISOFile]::Create($isopath, $res.ImageStream, $res.blkSz, $res.blkCnt)
+}
+
 function create-machine($switch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock, $ip, $mac) {
   $vmdir = "$tmp\$vmname"
   $vhdx = "$tmp\$vmname\$vmname.vhdx"
@@ -202,10 +192,8 @@ function create-machine($switch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock,
   copy-item -path $vhdxtmpl -destination $vhdx -force
   resize-vhd -path $vhdx -sizebytes $hdd
 
-  set-content $tmp\$vmname\meta-data ([byte[]][char[]] "$(get-metadata -vmname $vmname -cblock $cblock -ip $ip)") -encoding byte
-  set-content $tmp\$vmname\user-data ([byte[]][char[]] "$(get-userdata -vmname $vmname)") -encoding byte
-
-  & $mkisofs -volid cidata -joliet -rock -input-charset utf8 -quiet -o $tmp/$vmname/$vmname.iso $tmp/$vmname/user-data $tmp/$vmname/meta-data
+  produce-iso-contents -vmname $vmname -cblock $cblock -ip $ip
+  make-iso -vmname $vmname
 
   $vm = new-vm -name $vmname -memorystartupbytes $mem -generation 2 -switchname $switch -vhdpath $vhdx -path $tmp
   set-vmfirmware -vm $vm -enablesecureboot off
@@ -266,9 +254,7 @@ $($cblock).17 node7
 $($cblock).18 node8
 $($cblock).19 node9
 
-
 "@ | out-file -encoding utf8 -append "$env:windir\System32\drivers\etc\hosts"
-
 }
 
 function create-nodes($num, $cblock) {
@@ -285,25 +271,7 @@ function delete-nodes($num) {
   }
 }
 
-
-# ****************************************************************
-#
-#                          START HERE
-#
-# ****************************************************************
-
-
-# EDIT HERE 1.
-# which user name to create on the VMs
-# defaults to current user name (i.e. you)
 $user = $env:USERNAME
-
-
-
-# EDIT HERE 2.
-# download and prepare the disk template
-# (caching is used; will only download & process new files)
-# NOTE: the package config above targets ubuntu distros, you will need to update it for other distros
 
 # kernel 4.15
 # https://wiki.ubuntu.com/BionicBeaver/ReleaseNotes
@@ -315,12 +283,7 @@ $imageurl = 'http://cloud-images.ubuntu.com/releases/server/19.04/release/ubuntu
 
 $srcimg = "$tmp\$(split-path $imageurl -leaf)"
 $vhdxtmpl = "$(basename $srcimg).vhdx"
-#write-host "`r`n Using user: $user `r`n  and image: $vhdxtmpl `r`n"
 
-
-
-# EDITR HERE 3.
-# copy and paste the following commands as necessary (easier when this script is loaded into the "PowerShell ISE")
 # choose either public or private net
 #      (public: VMs will be accessible on your Wi-Fi; will get IPs from DHCP)
 #      (private: VMs will need port fwd to be accessible from other than your local machine; will need IP assign)
@@ -339,10 +302,6 @@ $macs = @(
   '02F7E0C904D0' # node10
 )
 
-if($args.count -eq 0) {
-  $args = @( 'help' )
-}
-
 echo ''
 
 $nettype = 'private' # private/public
@@ -359,8 +318,12 @@ $cpus = 4
 $ram = 4GB
 $hdd = 40GB
 
+if($args.count -eq 0) {
+  # $args = @( 'help' )
+  echo "try: ./hyper-v.ps1 help"
+}
+
 switch -regex ($args) {
-  # set-executionpolicy remotesigned -scope process
   help {
     echo "help"
   }
@@ -370,6 +333,7 @@ switch -regex ($args) {
     echo " cidr:  $cidr.0/24"
   }
   install {
+    choco install kubernetes-cli kubernetes-helm qemu-img
   }
   info {
     # show nodes info
