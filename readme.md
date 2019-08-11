@@ -31,9 +31,6 @@ cd k8s-hyperv
 # examine and customize the script, e.g.:
 code hyperv.ps1
 
-# display help about provided commands
-.\hyperv.ps1 help
-
 # performs `choco install kubernetes-cli kubernetes-helm qemu-img`.
 # you may instead perform these manually / selectively instead.
 .\hyperv.ps1 install

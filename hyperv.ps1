@@ -4,7 +4,7 @@
 
 # ---------------------------SETTINGS------------------------------------
 
-$user = $env:USERNAME
+$guestuser = $env:USERNAME
 $sshpath = "$HOME\.ssh\id_rsa.pub"
 if (!(test-path $sshpath)) {
   write-host "`n please configure `$sshpath or place a pubkey at $sshpath `n"
@@ -97,7 +97,7 @@ groups:
   - docker
 
 users:
-  - name: $user
+  - name: $guestuser
     ssh_authorized_keys:
       - $($sshpub)
     sudo: [ 'ALL=(ALL) NOPASSWD:ALL' ]
@@ -336,20 +336,20 @@ switch -regex ($args) {
     choco install kubernetes-cli kubernetes-helm qemu-img
   }
   config {
-    echo "     user: $user"
-    echo "  sshpath: $sshpath"
-    echo " imageurl: $imageurl"
-    echo " vhdxtmpl: $vhdxtmpl"
-    echo "     cidr: $cidr.0/24"
-    echo "   switch: $zwitch"
-    echo "  nettype: $nettype"
+    echo " guestuser: $guestuser"
+    echo "   sshpath: $sshpath"
+    echo "  imageurl: $imageurl"
+    echo "  vhdxtmpl: $vhdxtmpl"
+    echo "      cidr: $cidr.0/24"
+    echo "    switch: $zwitch"
+    echo "   nettype: $nettype"
     switch ($nettype) {
-      'private' { echo "   natnet: $natnet" }
-      'public'  { echo "  adapter: $adapter" }
+      'private' { echo "    natnet: $natnet" }
+      'public'  { echo "   adapter: $adapter" }
     }
-    echo "     cpus: $cpus"
-    echo "      ram: $ram"
-    echo "      hdd: $hdd"
+    echo "      cpus: $cpus"
+    echo "       ram: $ram"
+    echo "       hdd: $hdd"
   }
   image {
     prepare-vhdx-tmpl -url $imageurl -srcimg $srcimg -vhdxtmpl $vhdxtmpl
