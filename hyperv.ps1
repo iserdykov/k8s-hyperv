@@ -6,6 +6,12 @@
 # ---------------------------SETTINGS------------------------------------
 
 $user = $env:USERNAME
+$sshpath = "$HOME\.ssh\id_rsa.pub"
+if (!(test-path $sshpath)) {
+  write-host "`n please configure `$sshpath or place a pubkey at $sshpath `n"
+  exit
+}
+$sshpub = get-content $sshpath -raw
 
 # kernel 4.15
 # https://wiki.ubuntu.com/BionicBeaver/ReleaseNotes
@@ -16,13 +22,13 @@ $user = $env:USERNAME
 $imageurl = 'http://cloud-images.ubuntu.com/releases/server/19.04/release/ubuntu-19.04-server-cloudimg-amd64.img'
 
 $nettype = 'private' # private/public
-$switch = 'switch' # private or public switch name
+$zwitch = 'switch' # private or public switch name
 $natnet = 'natnet' # private net nat net name
 $adapter = 'Wi-Fi' # public net adapter name
 
 $cpus = 4
-$ram = 4GB
-$hdd = 40GB
+$ram = '4GB'
+$hdd = '40GB'
 
 $cidr = switch ($nettype) {
   'private' { '10.10.0' }
@@ -95,7 +101,7 @@ groups:
 users:
   - name: $user
     ssh_authorized_keys:
-      - $(cat $HOME\.ssh\id_rsa.pub)
+      - $($sshpub)
     sudo: [ 'ALL=(ALL) NOPASSWD:ALL' ]
     groups: [ sudo, docker ]
     shell: /bin/bash
@@ -169,13 +175,13 @@ power_state:
 #  - docker-ce-cli
 #  - containerd.io
 
-function create-public-net($switch, $adapter) {
-  new-vmswitch -name $switch -allowmanagementos $true -netadaptername $adapter
+function create-public-net($zwitch, $adapter) {
+  new-vmswitch -name $zwitch -allowmanagementos $true -netadaptername $adapter
 }
 
-function create-private-net($natnet, $switch, $cblock) {
-  new-vmswitch -name $switch -switchtype internal
-  new-netipaddress -ipaddress "$($cblock).1" -prefixlength 24 -interfacealias "vEthernet ($switch)"
+function create-private-net($natnet, $zwitch, $cblock) {
+  new-vmswitch -name $zwitch -zwitchtype internal
+  new-netipaddress -ipaddress "$($cblock).1" -prefixlength 24 -interfacealias "vEthernet ($zwitch)"
   new-netnat -name $natnet -internalipinterfaceaddressprefix "$($cblock).0/24"
 }
 
@@ -210,7 +216,7 @@ function make-iso($vmname) {
   [ISOFile]::Create($isopath, $res.ImageStream, $res.blkSz, $res.blkCnt)
 }
 
-function create-machine($switch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock, $ip, $mac) {
+function create-machine($zwitch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock, $ip, $mac) {
   $vmdir = "$tmp\$vmname"
   $vhdx = "$tmp\$vmname\$vmname.vhdx"
   new-item -itemtype directory -force -path $vmdir | out-null
@@ -220,7 +226,7 @@ function create-machine($switch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock,
   produce-iso-contents -vmname $vmname -cblock $cblock -ip $ip
   make-iso -vmname $vmname
 
-  $vm = new-vm -name $vmname -memorystartupbytes $mem -generation 2 -switchname $switch -vhdpath $vhdx -path $tmp
+  $vm = new-vm -name $vmname -memorystartupbytes $mem -generation 2 -zwitchname $zwitch -vhdpath $vhdx -path $tmp
   set-vmfirmware -vm $vm -enablesecureboot off
   set-vmprocessor -vm $vm -count $cpus
   add-vmdvddrive -vmname $vmname -path $tmp/$vmname/$vmname.iso
@@ -239,12 +245,12 @@ function delete-machine($name) {
   remove-item -recurse -force $tmp/$name
 }
 
-function delete-public-net($switch) {
-  remove-vmswitch -name $switch -confirm $false
+function delete-public-net($zwitch) {
+  remove-vmswitch -name $zwitch -confirm $false
 }
 
-function delete-private-net($switch, $natnet) {
-  remove-vmswitch -name $switch -confirm $false
+function delete-private-net($zwitch, $natnet) {
+  remove-vmswitch -name $zwitch -confirm $false
   remove-netnat -name $natnet -confirm $false
 }
 
@@ -286,7 +292,7 @@ $($cblock).19 node9
 function create-nodes($num, $cblock) {
   1..$num | %{
     echo creating node $_
-    create-machine -switch 'switch' -vmname "node$_" -cpus 4 -mem 4GB -hdd 40GB -vhdxtmpl $vhdxtmpl -cblock $cblock -ip $(10+$_)
+    create-machine -zwitch $zwitch -vmname "node$_" -cpus 4 -mem 4GB -hdd 40GB -vhdxtmpl $vhdxtmpl -cblock $cblock -ip $(10+$_)
   }
 }
 
@@ -304,13 +310,16 @@ function get-image-vars($imageurl) {
 
 }
 
+function get-our-vms() {
+  return get-vm | where-object { ($_.state -eq 'running') -and ($_.name -match 'master|node.*') }
+}
+
 echo ''
 
 $srcimg, $vhdxtmpl = get-image-vars($imageurl)
 
 if($args.count -eq 0) {
-  # $args = @( 'help' )
-  echo "try: ./hyper-v.ps1 help"
+  $args = @( 'help' )
 }
 
 switch -regex ($args) {
@@ -321,17 +330,28 @@ switch -regex ($args) {
     choco install kubernetes-cli kubernetes-helm qemu-img
   }
   config {
-    echo " user:  $user"
-    echo " image: $vhdxtmpl"
-    echo " cidr:  $cidr.0/24"
+    echo "     user: $user"
+    echo "  sshpath: $sshpath"
+    echo " imageurl: $imageurl"
+    echo " vhdxtmpl: $vhdxtmpl"
+    echo "     cidr: $cidr.0/24"
+    echo "   switch: $zwitch"
+    echo "  nettype: $nettype"
+    switch ($nettype) {
+      'private' { echo "   natnet: $natnet" }
+      'public' { echo "  adapter: $adapter" }
+    }
+    echo "     cpus: $cpus"
+    echo "      ram: $ram"
+    echo "      hdd: $hdd"
   }
   image {
     prepare-vhdx-tmpl -url $imageurl -srcimg $srcimg -vhdxtmpl $vhdxtmpl
   }
   net {
     switch ($nettype) {
-      'private' { create-private-net -natnet $natnet -switch $switch -cblock $cidr }
-      'public' { create-public-net -switch $switch -adapter $adapter }
+      'private' { create-private-net -natnet $natnet -zwitch $zwitch -cblock $cidr }
+      'public' { create-public-net -zwitch $zwitch -adapter $adapter }
     }
   }
   hosts {
@@ -351,34 +371,38 @@ switch -regex ($args) {
     }
   }
   master {
-    create-machine -switch $switch -vmname 'master' -cpus $cpus -mem $ram -hdd $hdd `
+
+    create-machine -zwitch $zwitch -vmname 'master' -cpus $cpus `
+      -mem $(Invoke-Expression $ram) -hdd $(Invoke-Expression $hdd) `
       -vhdxtmpl $vhdxtmpl -cblock $cidr -ip '10' -mac $macs[0]
   }
   # node1, node2, ...
   '(^node(?<number>\d+)$)' {
     $num = [int]$matches.number
     $name = "node$($num)"
-    create-machine -switch $switch -vmname $name -cpus $cpus -mem $ram -hdd $hdd `
+    create-machine -zwitch $zwitch -vmname $name -cpus $cpus `
+      -mem $(Invoke-Expression $ram) -hdd $(Invoke-Expression $hdd) `
       -vhdxtmpl $vhdxtmpl -cblock $cidr -ip "$($num + 10)" -mac $macs[$num]
   }
   info {
-    # show nodes info
+    get-our-vms
   }
   save {
-    #get-vm
-    #checkpoint-vm
+    get-our-vms | checkpoint-vm
   }
   stop {
+    get-our-vms | stop-vm
+  }
+  start {
+    get-our-vms | start-vm
   }
   delete {
-    get-vm
-    #delete-machine -name 'node2'
-    #delete-machine -name 'master'
+    get-our-vms | %{ delete-machine -name $_.name }
   }
   delete-net {
     switch ($nettype) {
-      'private' { delete-private-net -switch $switch -natnet $natnet }
-      'public' { delete-public-net -switch $switch }
+      'private' { delete-private-net -zwitch $zwitch -natnet $natnet }
+      'public' { delete-public-net -zwitch $zwitch }
     }
   }
 }

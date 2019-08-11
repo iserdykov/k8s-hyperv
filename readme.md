@@ -35,22 +35,31 @@ code hyperv.ps1
 .\hyperv.ps1 help
 
 # performs `choco install kubernetes-cli kubernetes-helm qemu-img`.
-# you may perform these manually / selectively instead.
+# you may instead perform these manually / selectively instead.
 .\hyperv.ps1 install
 
 # display configured variables (edit the script to change them)
 .\hyperv.ps1 config
 
-# TODO example
+     user: name
+  sshpath: C:\Users\name\.ssh\id_rsa.pub
+ imageurl: http://cloud-images.ubuntu.com/releases/server/19.04/release/ubuntu-19.04-server-cloudimg-amd64.img
+ vhdxtmpl: tmp\ubuntu-19.04-server-cloudimg-amd64.vhdx
+     cidr: 10.10.0.0/24
+   switch: switch
+  nettype: private
+   natnet: natnet
+     cpus: 4
+      ram: 4GB
+      hdd: 40GB
 
 # download, prepare and cache the VM image templates
 .\hyperv.ps1 image
 
-# create a network switch - depending on the config setting,
+# create a network switch - depending on the config setting (see `.\hyperv.ps1 config`),
 # it will be either private or public network:
-# - public: VMs will be accessible on your Wi-Fi; will get IPs from DHCP
-# - private: VMs will need port fwd to be accessible from other than your local machine; will need IP assign
-
+# - public: VMs will be accessible on your LAN (default: `Wi-Fi` adapter); will get IPs from DHCP
+# - private: VMs will need port fwd to be accessible from other than your local machine
 # the default CIDR (10.10.0.0/24) is configured to avoid colliding with the
 # default CIDRs of Kubernetes Pod networking plugins (Calico etc.).
 # default CIDRs to avoid:
@@ -59,13 +68,17 @@ code hyperv.ps1
 # - Flannel (10.244.0.0/16<->10.244.255.255)
 .\hyperv.ps1 net
 
-#
+# update etc/hosts so you can access the VMs by name e.g. `ssh master`
+# (the VMs are created with your username, so no need for `user@`)
+# if you want to repeat this action, you'll first need to remove the previous
+# entries from the etc/hosts file manually
 .\hyperv.ps1 hosts
 
-#
+# generate a new set of MAC addresses in a format directly insertable into the `hyperv.ps1` script.
+# the script already contains a default set of MAC addresses.
 .\hyperv.ps1 macs
 
-# launch the nodes
+# launch the nodes (will create the node if it doesn't exist yet)
 .\hyperv.ps1 master
 .\hyperv.ps1 node1
 .\hyperv.ps1 nodeN...
@@ -88,21 +101,24 @@ ssh node2
 # you can disable this behavior by commenting out the powerdown in the cloud-init config.
 
 # show info about existing VMs (size, run state)
-.\hyperv.ps1 info # TODO
+.\hyperv.ps1 info
 
-NAME    PID    %CPU  %MEM  RSS   STARTED  TIME     DISK  SPARSE  STATUS
-master  36399  0.4   2.1   341M  3:51AM   0:26.30  40G   3.1G    RUNNING
-node1   36418  0.3   2.1   341M  3:51AM   0:25.59  40G   3.1G    RUNNING
-node2   37799  0.4   2.0   333M  3:56AM   0:16.78  40G   3.1G    RUNNING
+Name   State   CPUUsage(%) MemoryAssigned(M) Uptime             Status             Version
+----   -----   ----------- ----------------- ------             ------             -------
+master Running 0           1370              4.00:04:10.4700000 Operating normally 9.0
+
 
 # (optional) checkpoint the VMs at any time
-.\hyperv.ps1 save # TODO
+.\hyperv.ps1 save
 
 # stop all nodes
-.\hyperv.ps1 stop # TODO
+.\hyperv.ps1 stop
+
+# start all nodes
+.\hyperv.ps1 start
 
 # delete all nodes' data (will not delete image templates)
-.\hyperv.ps1 delete # TODO
+.\hyperv.ps1 delete
 
 # delete the network
 .\hyperv.ps1 delete-net
