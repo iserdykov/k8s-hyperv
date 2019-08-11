@@ -40,7 +40,7 @@ code hyperv.ps1
 
 # display configured variables (edit the script to change them)
 .\hyperv.ps1 config
-
+'
      user: name
   sshpath: C:\Users\name\.ssh\id_rsa.pub
  imageurl: http://cloud-images.ubuntu.com/releases/server/19.04/release/ubuntu-19.04-server-cloudimg-amd64.img
@@ -52,10 +52,7 @@ code hyperv.ps1
      cpus: 4
       ram: 4GB
       hdd: 40GB
-
-# download, prepare and cache the VM image templates
-.\hyperv.ps1 image
-
+'
 # create a network switch - depending on the config setting (see `.\hyperv.ps1 config`),
 # it will be either private or public network:
 # - public: VMs will be accessible on your LAN (default: `Wi-Fi` adapter); will get IPs from DHCP
@@ -85,6 +82,9 @@ code hyperv.ps1
 # ---- or -----
 .\hyperv.ps1 master node1 node2 nodeN...
 
+# download, prepare and cache the VM image templates
+.\hyperv.ps1 image
+
 # ssh to the nodes and install basic Kubernetes cluster here.
 # IPs can be found in `etc/hosts`
 # by default, your `.ssh/id_rsa.pub` key was copied into the VMs' ~/.ssh/authorized_keys
@@ -102,11 +102,11 @@ ssh node2
 
 # show info about existing VMs (size, run state)
 .\hyperv.ps1 info
-
+'
 Name   State   CPUUsage(%) MemoryAssigned(M) Uptime             Status             Version
 ----   -----   ----------- ----------------- ------             ------             -------
 master Running 0           1370              4.00:04:10.4700000 Operating normally 9.0
-
+'
 
 # (optional) checkpoint the VMs at any time
 .\hyperv.ps1 save

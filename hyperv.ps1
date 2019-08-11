@@ -2,7 +2,6 @@
 # For usage overview, read the readme.md at https://github.com/youurayy/k8s-hyperv
 # License: https://www.apache.org/licenses/LICENSE-2.0
 
-
 # ---------------------------SETTINGS------------------------------------
 
 $user = $env:USERNAME
@@ -50,7 +49,6 @@ $macs = @(
 )
 
 # ----------------------------------------------------------------------
-
 
 # switch to the script directory
 cd $PSScriptRoot | out-null
@@ -235,7 +233,6 @@ function create-machine($zwitch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock,
   get-vmnetworkadapter -vm $vm | set-vmnetworkadapter -staticmacaddress $mac
 
   set-vmcomport -vmname $vmname -number 2 -path \\.\pipe\dbg1
-
   start-vm -name $vmname
 }
 
@@ -324,7 +321,16 @@ if($args.count -eq 0) {
 
 switch -regex ($args) {
   help {
-    echo "help"
+    echo
+    echo "Practice real Kubernetes configurations on a local multi-node cluster."
+    echo "Inspect and optionally customize this script before use."
+    echo
+    echo "Usage: ./hyperv.ps1 [ install | config | net | hosts | macs | image | "
+    echo "        master | node1 | node2 | nodeN... | "
+    echo "        info | save | stop | start | delete | delete-net ]+"
+    echo
+    echo "For more info, see: https://github.com/youurayy/k8s-hyperv"
+    echo
   }
   install {
     choco install kubernetes-cli kubernetes-helm qemu-img
@@ -339,7 +345,7 @@ switch -regex ($args) {
     echo "  nettype: $nettype"
     switch ($nettype) {
       'private' { echo "   natnet: $natnet" }
-      'public' { echo "  adapter: $adapter" }
+      'public'  { echo "  adapter: $adapter" }
     }
     echo "     cpus: $cpus"
     echo "      ram: $ram"
