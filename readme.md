@@ -33,6 +33,9 @@ cd k8s-hyperv
 # examine and customize the script, e.g.:
 code hyperv.ps1
 
+# display short synopsis for the available commands
+.\hyperv.ps1 help
+
 # performs `choco install kubernetes-cli kubernetes-helm qemu-img`.
 # you may instead perform these manually / selectively instead.
 .\hyperv.ps1 install
@@ -40,6 +43,7 @@ code hyperv.ps1
 # display configured variables (edit the script to change them)
 .\hyperv.ps1 config
 '
+  workdir: .\tmp
      user: name
   sshpath: C:\Users\name\.ssh\id_rsa.pub
  imageurl: http://cloud-images.ubuntu.com/releases/server/19.04/release/ubuntu-19.04-server-cloudimg-amd64.img
@@ -63,6 +67,9 @@ code hyperv.ps1
 # - Weave Net (10.32.0.0/12<->10.47.255.255)
 # - Flannel (10.244.0.0/16<->10.244.255.255)
 .\hyperv.ps1 net
+
+# print the current etc/hosts file
+.\hyperv.ps1 print
 
 # update etc/hosts so you can access the VMs by name e.g. `ssh master`
 # (the VMs are created with your username, so no need for `user@`)
@@ -107,8 +114,11 @@ Name   State   CPUUsage(%) MemoryAssigned(M) Uptime             Status          
 master Running 0           1370              4.00:04:10.4700000 Operating normally 9.0
 '
 
-# (optional) checkpoint the VMs at any time
+# (optional) checkpoint the VMs
 .\hyperv.ps1 save
+
+# (optional) restore the VMs from the lastest snapshot
+.\hyperv.ps1 restore
 
 # stop all nodes
 .\hyperv.ps1 stop

@@ -4,6 +4,7 @@
 
 # ---------------------------SETTINGS------------------------------------
 
+$workdir = '.\tmp'
 $guestuser = $env:USERNAME
 $sshpath = "$HOME\.ssh\id_rsa.pub"
 if (!(test-path $sshpath)) {
@@ -57,11 +58,7 @@ cd $PSScriptRoot | out-null
 $ErrorActionPreference = "Stop"
 $PSDefaultParameterValues['*:ErrorAction']='Stop'
 
-# create ./tmp in the current directory
-$tmp = 'tmp'
-if (!(test-path $tmp)) {
-  mkdir $tmp | out-null
-}
+$etchosts = "$env:windir\System32\drivers\etc\hosts"
 
 # note: network configs version 1 an 2 didn't work
 function get-metadata($vmname, $cblock, $ip) {
@@ -184,10 +181,10 @@ function create-private-net($natnet, $zwitch, $cblock) {
 }
 
 function produce-iso-contents($vmname, $cblock, $ip) {
-  md $tmp\$vmname\cidata -ea 0 | out-null
-  set-content $tmp\$vmname\cidata\meta-data ([byte[]][char[]] `
+  md $workdir\$vmname\cidata -ea 0 | out-null
+  set-content $workdir\$vmname\cidata\meta-data ([byte[]][char[]] `
     "$(get-metadata -vmname $vmname -cblock $cblock -ip $ip)") -encoding byte
-  set-content $tmp\$vmname\cidata\user-data ([byte[]][char[]] `
+  set-content $workdir\$vmname\cidata\user-data ([byte[]][char[]] `
     "$(get-userdata -vmname $vmname)") -encoding byte
 }
 
@@ -195,9 +192,9 @@ function make-iso($vmname) {
   $fsi = new-object -ComObject IMAPI2FS.MsftFileSystemImage
   $fsi.FileSystemsToCreate = 3
   $fsi.VolumeName = 'cidata'
-  $path = (resolve-path -path ".\$tmp\$vmname\cidata").path
+  $path = (resolve-path -path "$workdir\$vmname\cidata").path
   $fsi.Root.AddTreeWithNamedStreams($path, $false)
-  $isopath = (resolve-path -path ".\$tmp\$vmname\$vmname.iso").path
+  $isopath = (resolve-path -path "$workdir\$vmname\$vmname.iso").path
   $res = $fsi.CreateResultImage()
   $cp = New-Object CodeDom.Compiler.CompilerParameters
   $cp.CompilerOptions = "/unsafe"
@@ -215,8 +212,8 @@ function make-iso($vmname) {
 }
 
 function create-machine($zwitch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock, $ip, $mac) {
-  $vmdir = "$tmp\$vmname"
-  $vhdx = "$tmp\$vmname\$vmname.vhdx"
+  $vmdir = "$workdir\$vmname"
+  $vhdx = "$workdir\$vmname\$vmname.vhdx"
   new-item -itemtype directory -force -path $vmdir | out-null
   copy-item -path $vhdxtmpl -destination $vhdx -force
   resize-vhd -path $vhdx -sizebytes $hdd
@@ -224,10 +221,11 @@ function create-machine($zwitch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock,
   produce-iso-contents -vmname $vmname -cblock $cblock -ip $ip
   make-iso -vmname $vmname
 
-  $vm = new-vm -name $vmname -memorystartupbytes $mem -generation 2 -zwitchname $zwitch -vhdpath $vhdx -path $tmp
+  $vm = new-vm -name $vmname -memorystartupbytes $mem -generation 2 `
+    -zwitchname $zwitch -vhdpath $vhdx -path $workdir
   set-vmfirmware -vm $vm -enablesecureboot off
   set-vmprocessor -vm $vm -count $cpus
-  add-vmdvddrive -vmname $vmname -path $tmp/$vmname/$vmname.iso
+  add-vmdvddrive -vmname $vmname -path $workdir/$vmname/$vmname.iso
 
   if(!$mac) { $mac = create-mac-address }
   get-vmnetworkadapter -vm $vm | set-vmnetworkadapter -staticmacaddress $mac
@@ -239,7 +237,7 @@ function create-machine($zwitch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock,
 function delete-machine($name) {
   stop-vm $name -turnoff -confirm:$false -ErrorAction SilentlyContinue
   remove-vm $name -force  -ErrorAction SilentlyContinue
-  remove-item -recurse -force $tmp/$name
+  remove-item -recurse -force $workdir/$name
 }
 
 function delete-public-net($zwitch) {
@@ -260,6 +258,9 @@ function basename($path) {
 }
 
 function prepare-vhdx-tmpl($url, $srcimg, $vhdxtmpl) {
+  if (!(test-path $workdir)) {
+    mkdir $workdir | out-null
+  }
   if (!(test-path $srcimg)) {
     invoke-webrequest $url -usebasicparsing -outfile $srcimg
   }
@@ -283,7 +284,7 @@ $($cblock).17 node7
 $($cblock).18 node8
 $($cblock).19 node9
 
-"@ | out-file -encoding utf8 -append "$env:windir\System32\drivers\etc\hosts"
+"@ | out-file -encoding utf8 -append $etchosts
 }
 
 function create-nodes($num, $cblock) {
@@ -301,7 +302,7 @@ function delete-nodes($num) {
 }
 
 function get-image-vars($imageurl) {
-  $srcimg = "$tmp\$(split-path $imageurl -leaf)"
+  $srcimg = "$workdir\$(split-path $imageurl -leaf)"
   $vhdxtmpl = "$(basename $srcimg).vhdx"
   return $srcimg, $vhdxtmpl
 
@@ -321,21 +322,39 @@ if($args.count -eq 0) {
 
 switch -regex ($args) {
   help {
-    echo
-    echo "Practice real Kubernetes configurations on a local multi-node cluster."
-    echo "Inspect and optionally customize this script before use."
-    echo
-    echo "Usage: ./hyperv.ps1 [ install | config | net | hosts | macs | image | "
-    echo "        master | node1 | node2 | nodeN... | "
-    echo "        info | save | stop | start | delete | delete-net ]+"
-    echo
-    echo "For more info, see: https://github.com/youurayy/k8s-hyperv"
-    echo
+    echo @"
+  Practice real Kubernetes configurations on a local multi-node cluster.
+  Inspect and optionally customize this script before use.
+
+  Usage: .\hyperv.ps1 command+
+
+  Commands:
+
+       install - install basic homebrew packages
+        config - show script config vars
+           net - install private or public network
+         print - print the current etc/hosts file
+         hosts - append node names to etc/hosts
+          macs - generate new set of MAC addresses
+         image - download the VM image
+        master - create and launch master node
+         nodeN - create and launch worker node (node1, node2, ...)
+          info - display info about nodes
+          save - snapshot the VMs
+       restore - restore VMs from latest snapshots
+          stop - stop the VMs
+         start - start the VMs
+        delete - delete the VMs
+    delete-net - delete the network
+
+  For more info, see: https://github.com/youurayy/k8s-hyperv
+"@
   }
   install {
     choco install kubernetes-cli kubernetes-helm qemu-img
   }
   config {
+    echo "   workdir: $workdir"
     echo " guestuser: $guestuser"
     echo "   sshpath: $sshpath"
     echo "  imageurl: $imageurl"
@@ -351,14 +370,15 @@ switch -regex ($args) {
     echo "       ram: $ram"
     echo "       hdd: $hdd"
   }
-  image {
-    prepare-vhdx-tmpl -url $imageurl -srcimg $srcimg -vhdxtmpl $vhdxtmpl
-  }
   net {
     switch ($nettype) {
       'private' { create-private-net -natnet $natnet -zwitch $zwitch -cblock $cidr }
       'public' { create-public-net -zwitch $zwitch -adapter $adapter }
     }
+  }
+  print {
+    echo "***** $etchosts *****"
+    get-content $etchosts | select-string -pattern '^#|^\s*$' -notmatch
   }
   hosts {
     # optionally, update /etc/hosts so you can e.g. `ssh user@master`
@@ -375,6 +395,9 @@ switch -regex ($args) {
       $comma = if($_ -eq $cnt) { '' } else { ',' }
       echo "  '$(create-mac-address)'$comma # $comment"
     }
+  }
+  image {
+    prepare-vhdx-tmpl -url $imageurl -srcimg $srcimg -vhdxtmpl $vhdxtmpl
   }
   master {
 
