@@ -396,6 +396,10 @@ switch -regex ($args) {
   save {
     get-our-vms | checkpoint-vm
   }
+  restore {
+    get-our-vms | foreach-object { $_ | get-vmsnapshot | sort creationtime | `
+      select -last 1 | restore-vmsnapshot -confirm:$false }
+  }
   stop {
     get-our-vms | stop-vm
   }
