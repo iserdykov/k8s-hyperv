@@ -13,13 +13,14 @@ if (!(test-path $sshpath)) {
 }
 $sshpub = get-content $sshpath -raw
 
-# kernel 4.15
-# https://wiki.ubuntu.com/BionicBeaver/ReleaseNotes
-# $imageurl = 'http://cloud-images.ubuntu.com/releases/server/18.04/release/ubuntu-18.04-server-cloudimg-amd64.img'
+# $version=18.04 # kernel 4.15; https://wiki.ubuntu.com/BionicBeaver/ReleaseNotes
+$version=19.04 # kernel 5.0; https://wiki.ubuntu.com/DiscoDingo/ReleaseNotes
+$image = "ubuntu-$version-server-cloudimg-amd64.img"
+$imagebase = "https://cloud-images.ubuntu.com/releases/server/$version/release"
 
-# kernel 5.0
-# https://wiki.ubuntu.com/DiscoDingo/ReleaseNotes
-$imageurl = 'http://cloud-images.ubuntu.com/releases/server/19.04/release/ubuntu-19.04-server-cloudimg-amd64.img'
+$imageurl = "$imagebase/$image"
+$srcimg = "$workdir\$image"
+$vhdxtmpl = "$workdir\$($image -replace '^(.+)\.[^.]+$', '$1').vhdx"
 
 $nettype = 'private' # private/public
 $zwitch = 'switch' # private or public switch name
@@ -100,7 +101,7 @@ users:
     sudo: [ 'ALL=(ALL) NOPASSWD:ALL' ]
     groups: [ sudo, docker ]
     shell: /bin/bash
-    # lock_passwd: false
+    # lock_passwd: false # passwd won't work without this
     # passwd: '`$6`$rounds=4096`$byY3nxArmvpvOrpV`$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
 
 write_files:
@@ -262,13 +263,16 @@ function basename($path) {
   return $path.substring(0, $path.lastindexof('.'))
 }
 
-function prepare-vhdx-tmpl($url, $srcimg, $vhdxtmpl) {
+function prepare-vhdx-tmpl($imageurl, $srcimg, $vhdxtmpl) {
   if (!(test-path $workdir)) {
     mkdir $workdir | out-null
   }
   if (!(test-path $srcimg)) {
-    invoke-webrequest $url -usebasicparsing -outfile $srcimg
+    invoke-webrequest $imageurl -usebasicparsing -outfile $srcimg
   }
+
+  shasum256 -shaurl "$imagebase/SHA256SUMS" -diskitem $srcimg -item $image
+
   if (!(test-path $vhdxtmpl)) {
     qemu-img.exe convert $srcimg -O vhdx -o subformat=dynamic $vhdxtmpl
   }
@@ -308,13 +312,6 @@ function delete-nodes($num) {
   }
 }
 
-function get-image-vars($imageurl) {
-  $srcimg = "$workdir\$(split-path $imageurl -leaf)"
-  $vhdxtmpl = "$(basename $srcimg).vhdx"
-  return $srcimg, $vhdxtmpl
-
-}
-
 function get-our-vms() {
   return get-vm | where-object { ($_.name -match 'master|node.*') }
 }
@@ -323,9 +320,27 @@ function get-our-running-vms() {
   return get-vm | where-object { ($_.state -eq 'running') -and ($_.name -match 'master|node.*') }
 }
 
-echo ''
+function shasum256($shaurl, $diskitem, $item) {
+  $pat = "^(\S+)\s\*$([regex]::escape($item))$"
 
-$srcimg, $vhdxtmpl = get-image-vars($imageurl)
+  $hash = get-filehash -algo sha256 -path $diskitem | %{ $_.hash}
+
+  $webhash = ( invoke-webrequest $shaurl -usebasicparsing ).tostring().split("`n") | `
+    select-string $pat | %{ $_.matches.groups[1].value }
+
+  if(!($hash -ieq $webhash)) {
+    throw @"
+    SHA256 MISMATCH:
+       shaurl: $shaurl
+         item: $item
+     diskitem: $diskitem
+     diskhash: $hash
+      webhash: $webhash
+"@
+  }
+}
+
+echo ''
 
 if($args.count -eq 0) {
   $args = @( 'help' )
@@ -355,7 +370,7 @@ switch -regex ($args) {
      restore - restore VMs from latest snapshots
         stop - stop the VMs
        start - start the VMs
-      delete - stop VMs and delete the VMs files
+      delete - stop VMs and delete the VM files
       delnet - delete the network
 
   For more info, see: https://github.com/youurayy/k8s-hyperv
@@ -421,7 +436,7 @@ switch -regex ($args) {
     }
   }
   ^image$ {
-    prepare-vhdx-tmpl -url $imageurl -srcimg $srcimg -vhdxtmpl $vhdxtmpl
+    prepare-vhdx-tmpl -imageurl $imageurl -srcimg $srcimg -vhdxtmpl $vhdxtmpl
   }
   ^master$ {
     create-machine -zwitch $zwitch -vmname 'master' -cpus $cpus `
