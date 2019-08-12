@@ -241,8 +241,8 @@ function create-machine($zwitch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock,
 }
 
 function delete-machine($name) {
-  stop-vm $name -turnoff -confirm:$false -ErrorAction SilentlyContinue
-  remove-vm $name -force  -ErrorAction SilentlyContinue
+  stop-vm $name -turnoff -confirm:$false -ea silentlycontinue
+  remove-vm $name -force -ea silentlycontinue
   remove-item -recurse -force $workdir\$name
 }
 
@@ -256,7 +256,7 @@ function delete-private-net($zwitch, $natnet) {
 }
 
 function create-mac-address() {
-  return "02$((1..5 | %{ '{0:X2}' -f (Get-Random -Max 256) }) -join '')"
+  return "02$((1..5 | %{ '{0:X2}' -f (get-random -max 256) }) -join '')"
 }
 
 function basename($path) {
@@ -271,11 +271,17 @@ function prepare-vhdx-tmpl($imageurl, $srcimg, $vhdxtmpl) {
     invoke-webrequest $imageurl -usebasicparsing -outfile $srcimg
   }
 
-  shasum256 -shaurl "$imagebase/SHA256SUMS" -diskitem $srcimg -item $image
+  get-item -path $srcimg | %{ write-host 'srcimg:', $_.name, ([math]::round($_.length/1MB, 2)), 'MB' }
+
+  $hash = shasum256 -shaurl "$imagebase/SHA256SUMS" -diskitem $srcimg -item $image
+  echo "checksum: $hash"
 
   if (!(test-path $vhdxtmpl)) {
     qemu-img.exe convert $srcimg -O vhdx -o subformat=dynamic $vhdxtmpl
   }
+
+  echo ''
+  get-item -path $vhdxtmpl | %{ write-host 'vhxdtmpl:', $_.name, ([math]::round($_.length/1MB, 2)), 'MB' }
   return
 }
 
@@ -301,7 +307,8 @@ get-content $etchosts
 function create-nodes($num, $cblock) {
   1..$num | %{
     echo creating node $_
-    create-machine -zwitch $zwitch -vmname "node$_" -cpus 4 -mem 4GB -hdd 40GB -vhdxtmpl $vhdxtmpl -cblock $cblock -ip $(10+$_)
+    create-machine -zwitch $zwitch -vmname "node$_" -cpus 4 -mem 4GB -hdd 40GB `
+      -vhdxtmpl $vhdxtmpl -cblock $cblock -ip $(10+$_)
   }
 }
 
@@ -338,6 +345,8 @@ function shasum256($shaurl, $diskitem, $item) {
       webhash: $webhash
 "@
   }
+
+  return $hash
 }
 
 echo ''

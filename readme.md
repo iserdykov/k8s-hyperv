@@ -116,6 +116,9 @@ Name   State   CPUUsage(%) MemoryAssigned(M) Uptime             Status          
 master Running 0           1370              4.00:04:10.4700000 Operating normally 9.0
 '
 
+# start all installed nodes
+.\hyperv.ps1 start
+
 # setup kubernetes
 #    master:# sudo kubeadm init
 #    nodeN:# sudo kubeadm join .....
@@ -130,9 +133,6 @@ master Running 0           1370              4.00:04:10.4700000 Operating normal
 
 # stop all nodes
 .\hyperv.ps1 stop
-
-# start all nodes
-.\hyperv.ps1 start
 
 # delete all nodes' data (will not delete image templates)
 .\hyperv.ps1 delete
