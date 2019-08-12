@@ -101,7 +101,7 @@ users:
     groups: [ sudo, docker ]
     shell: /bin/bash
     # lock_passwd: false
-    # passwd: '\$6\$rounds=4096\$byY3nxArmvpvOrpV\$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
+    # passwd: '`$6`$rounds=4096`$byY3nxArmvpvOrpV`$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
 
 write_files:
   - path: /etc/resolv.conf
@@ -171,15 +171,13 @@ power_state:
 #  - containerd.io
 
 function create-public-net($zwitch, $adapter) {
-  new-vmswitch -name $zwitch -allowmanagementos $true -netadaptername $adapter `
-    -netadapterinterfacedescription 'created by hyperv.ps1'
+  new-vmswitch -name $zwitch -allowmanagementos $true -netadaptername $adapter | format-list
 }
 
 function create-private-net($natnet, $zwitch, $cblock) {
-  new-vmswitch -name $zwitch -zwitchtype internal `
-    -netadapterinterfacedescription 'created by hyperv.ps1'
-  new-netipaddress -ipaddress "$($cblock).1" -prefixlength 24 -interfacealias "vEthernet ($zwitch)"
-  new-netnat -name $natnet -internalipinterfaceaddressprefix "$($cblock).0/24"
+  new-vmswitch -name $zwitch -switchtype internal | format-list
+  new-netipaddress -ipaddress "$($cblock).1" -prefixlength 24 -interfacealias "vEthernet ($zwitch)" | format-list
+  new-netnat -name $natnet -internalipinterfaceaddressprefix "$($cblock).0/24" | format-list
 }
 
 function produce-iso-contents($vmname, $cblock, $ip) {
@@ -194,9 +192,10 @@ function make-iso($vmname) {
   $fsi = new-object -ComObject IMAPI2FS.MsftFileSystemImage
   $fsi.FileSystemsToCreate = 3
   $fsi.VolumeName = 'cidata'
-  $path = (resolve-path -path "$workdir\$vmname\cidata").path
+  $vmdir = (resolve-path -path "$workdir\$vmname").path
+  $path = "$vmdir\cidata"
   $fsi.Root.AddTreeWithNamedStreams($path, $false)
-  $isopath = (resolve-path -path "$workdir\$vmname\$vmname.iso").path
+  $isopath = "$vmdir\$vmname.iso"
   $res = $fsi.CreateResultImage()
   $cp = New-Object CodeDom.Compiler.CompilerParameters
   $cp.CompilerOptions = "/unsafe"
@@ -210,45 +209,49 @@ function make-iso($vmname) {
           if (o != null) { while (blkCnt-- > 0) { i.Read(buf, blkSz, ptr); o.Write(buf, 0, bytes); }
             o.Flush(); o.Close(); }}}
 "@ }
-  [ISOFile]::Create($isopath, $res.ImageStream, $res.blkSz, $res.blkCnt)
+  [ISOFile]::Create($isopath, $res.ImageStream, $res.BlockSize, $res.TotalBlocks)
 }
 
 function create-machine($zwitch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock, $ip, $mac) {
   $vmdir = "$workdir\$vmname"
   $vhdx = "$workdir\$vmname\$vmname.vhdx"
+
   new-item -itemtype directory -force -path $vmdir | out-null
-  copy-item -path $vhdxtmpl -destination $vhdx -force
-  resize-vhd -path $vhdx -sizebytes $hdd
 
-  produce-iso-contents -vmname $vmname -cblock $cblock -ip $ip
-  make-iso -vmname $vmname
+  if (!(test-path $vhdx)) {
+    copy-item -path $vhdxtmpl -destination $vhdx -force
+    resize-vhd -path $vhdx -sizebytes $hdd
 
-  $vm = new-vm -name $vmname -memorystartupbytes $mem -generation 2 `
-    -zwitchname $zwitch -vhdpath $vhdx -path $workdir
-  set-vmfirmware -vm $vm -enablesecureboot off
-  set-vmprocessor -vm $vm -count $cpus
-  add-vmdvddrive -vmname $vmname -path $workdir/$vmname/$vmname.iso
+    produce-iso-contents -vmname $vmname -cblock $cblock -ip $ip
+    make-iso -vmname $vmname
 
-  if(!$mac) { $mac = create-mac-address }
-  get-vmnetworkadapter -vm $vm | set-vmnetworkadapter -staticmacaddress $mac
+    $vm = new-vm -name $vmname -memorystartupbytes $mem -generation 2 `
+      -switchname $zwitch -vhdpath $vhdx -path $workdir
+    set-vmfirmware -vm $vm -enablesecureboot off
+    set-vmprocessor -vm $vm -count $cpus
+    add-vmdvddrive -vmname $vmname -path $workdir\$vmname\$vmname.iso
 
-  set-vmcomport -vmname $vmname -number 2 -path \\.\pipe\dbg1
+    if(!$mac) { $mac = create-mac-address }
+    get-vmnetworkadapter -vm $vm | set-vmnetworkadapter -staticmacaddress $mac
+
+    set-vmcomport -vmname $vmname -number 2 -path \\.\pipe\dbg1
+  }
   start-vm -name $vmname
 }
 
 function delete-machine($name) {
   stop-vm $name -turnoff -confirm:$false -ErrorAction SilentlyContinue
   remove-vm $name -force  -ErrorAction SilentlyContinue
-  remove-item -recurse -force $workdir/$name
+  remove-item -recurse -force $workdir\$name
 }
 
 function delete-public-net($zwitch) {
-  remove-vmswitch -name $zwitch -confirm $false
+  remove-vmswitch -name $zwitch -force -confirm:$false
 }
 
 function delete-private-net($zwitch, $natnet) {
-  remove-vmswitch -name $zwitch -confirm $false
-  remove-netnat -name $natnet -confirm $false
+  remove-vmswitch -name $zwitch -force -confirm:$false
+  remove-netnat -name $natnet -confirm:$false
 }
 
 function create-mac-address() {
@@ -287,6 +290,8 @@ $($cblock).18 node8
 $($cblock).19 node9
 
 "@ | out-file -encoding utf8 -append $etchosts
+
+get-content $etchosts
 }
 
 function create-nodes($num, $cblock) {
@@ -311,6 +316,10 @@ function get-image-vars($imageurl) {
 }
 
 function get-our-vms() {
+  return get-vm | where-object { ($_.name -match 'master|node.*') }
+}
+
+function get-our-running-vms() {
   return get-vm | where-object { ($_.state -eq 'running') -and ($_.name -match 'master|node.*') }
 }
 
@@ -323,7 +332,7 @@ if($args.count -eq 0) {
 }
 
 switch -regex ($args) {
-  help {
+  ^help$ {
     echo @"
   Practice real Kubernetes configurations on a local multi-node cluster.
   Inspect and optionally customize this script before use.
@@ -346,16 +355,16 @@ switch -regex ($args) {
      restore - restore VMs from latest snapshots
         stop - stop the VMs
        start - start the VMs
-      delete - delete the VMs
+      delete - stop VMs and delete the VMs files
       delnet - delete the network
 
   For more info, see: https://github.com/youurayy/k8s-hyperv
 "@
   }
-  install {
+  ^install$ {
     choco install kubernetes-cli kubernetes-helm qemu-img
   }
-  config {
+  ^config$ {
     echo "   workdir: $workdir"
     echo " guestuser: $guestuser"
     echo "   sshpath: $sshpath"
@@ -372,7 +381,7 @@ switch -regex ($args) {
     echo "       ram: $ram"
     echo "       hdd: $hdd"
   }
-  print {
+  ^print$ {
     echo "***** $etchosts *****"
     get-content $etchosts | select-string -pattern '^#|^\s*$' -notmatch
 
@@ -380,31 +389,30 @@ switch -regex ($args) {
     echo $macs
 
     echo "`n***** network interfaces *****`n"
-    (get-vmswitch 'switch' | format-list -property name, id, netadapterinterfacedescription | out-string).trim()
+    (get-vmswitch 'switch' -ea:silent | `
+      format-list -property name, id, netadapterinterfacedescription | out-string).trim()
 
     if ($nettype -eq 'private') {
       echo ''
-      (get-netipaddress -interfacealias 'vEthernet (switch)' | `
+      (get-netipaddress -interfacealias 'vEthernet (switch)' -ea:silent | `
         format-list -property ipaddress, interfacealias | out-string).trim()
       echo ''
-      (get-netnat 'natnet' | format-list -property name, internalipinterfaceaddressprefix | out-string).trim()
+      (get-netnat 'natnet' -ea:silent | format-list -property name, internalipinterfaceaddressprefix | out-string).trim()
     }
   }
-  net {
+  ^net$ {
     switch ($nettype) {
       'private' { create-private-net -natnet $natnet -zwitch $zwitch -cblock $cidr }
       'public' { create-public-net -zwitch $zwitch -adapter $adapter }
     }
   }
-  hosts {
-    # optionally, update /etc/hosts so you can e.g. `ssh user@master`
-    # todo check if already there -or- remove using magic
+  ^hosts$ {
     switch ($nettype) {
       'private' { update-etc-hosts -cblock $cidr }
       'public' { echo "not supported for public net - use dhcp"  }
     }
   }
-  macs {
+  ^macs$ {
     $cnt = 10
     0..$cnt | %{
       $comment = switch ($_) {0 {'master'} default {"node$_"}}
@@ -412,16 +420,14 @@ switch -regex ($args) {
       echo "  '$(create-mac-address)'$comma # $comment"
     }
   }
-  image {
+  ^image$ {
     prepare-vhdx-tmpl -url $imageurl -srcimg $srcimg -vhdxtmpl $vhdxtmpl
   }
-  master {
-
+  ^master$ {
     create-machine -zwitch $zwitch -vmname 'master' -cpus $cpus `
       -mem $(Invoke-Expression $ram) -hdd $(Invoke-Expression $hdd) `
       -vhdxtmpl $vhdxtmpl -cblock $cidr -ip '10' -mac $macs[0]
   }
-  # node1, node2, ...
   '(^node(?<number>\d+)$)' {
     $num = [int]$matches.number
     $name = "node$($num)"
@@ -429,26 +435,26 @@ switch -regex ($args) {
       -mem $(Invoke-Expression $ram) -hdd $(Invoke-Expression $hdd) `
       -vhdxtmpl $vhdxtmpl -cblock $cidr -ip "$($num + 10)" -mac $macs[$num]
   }
-  info {
+  ^info$ {
     get-our-vms
   }
-  save {
+  ^save$ {
     get-our-vms | checkpoint-vm
   }
-  restore {
+  ^restore$ {
     get-our-vms | foreach-object { $_ | get-vmsnapshot | sort creationtime | `
       select -last 1 | restore-vmsnapshot -confirm:$false }
   }
-  stop {
+  ^stop$ {
     get-our-vms | stop-vm
   }
-  start {
+  ^start$ {
     get-our-vms | start-vm
   }
-  delete {
+  ^delete$ {
     get-our-vms | %{ delete-machine -name $_.name }
   }
-  delnet {
+  ^delnet$ {
     switch ($nettype) {
       'private' { delete-private-net -zwitch $zwitch -natnet $natnet }
       'public' { delete-public-net -zwitch $zwitch }
