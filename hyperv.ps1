@@ -171,11 +171,13 @@ power_state:
 #  - containerd.io
 
 function create-public-net($zwitch, $adapter) {
-  new-vmswitch -name $zwitch -allowmanagementos $true -netadaptername $adapter
+  new-vmswitch -name $zwitch -allowmanagementos $true -netadaptername $adapter `
+    -netadapterinterfacedescription 'created by hyperv.ps1'
 }
 
 function create-private-net($natnet, $zwitch, $cblock) {
-  new-vmswitch -name $zwitch -zwitchtype internal
+  new-vmswitch -name $zwitch -zwitchtype internal `
+    -netadapterinterfacedescription 'created by hyperv.ps1'
   new-netipaddress -ipaddress "$($cblock).1" -prefixlength 24 -interfacealias "vEthernet ($zwitch)"
   new-netnat -name $natnet -internalipinterfaceaddressprefix "$($cblock).0/24"
 }
@@ -330,22 +332,22 @@ switch -regex ($args) {
 
   Commands:
 
-       install - install basic homebrew packages
-        config - show script config vars
-           net - install private or public network
-         print - print the current etc/hosts file
-         hosts - append node names to etc/hosts
-          macs - generate new set of MAC addresses
-         image - download the VM image
-        master - create and launch master node
-         nodeN - create and launch worker node (node1, node2, ...)
-          info - display info about nodes
-          save - snapshot the VMs
-       restore - restore VMs from latest snapshots
-          stop - stop the VMs
-         start - start the VMs
-        delete - delete the VMs
-    delete-net - delete the network
+     install - install basic homebrew packages
+      config - show script config vars
+       print - print etc/hosts, network interfaces and mac addresses
+         net - install private or public network
+       hosts - append node names to etc/hosts
+        macs - generate new set of MAC addresses
+       image - download the VM image
+      master - create and launch master node
+       nodeN - create and launch worker node (node1, node2, ...)
+        info - display info about nodes
+        save - snapshot the VMs
+     restore - restore VMs from latest snapshots
+        stop - stop the VMs
+       start - start the VMs
+      delete - delete the VMs
+      delnet - delete the network
 
   For more info, see: https://github.com/youurayy/k8s-hyperv
 "@
@@ -370,15 +372,29 @@ switch -regex ($args) {
     echo "       ram: $ram"
     echo "       hdd: $hdd"
   }
+  print {
+    echo "***** $etchosts *****"
+    get-content $etchosts | select-string -pattern '^#|^\s*$' -notmatch
+
+    echo "`n***** configured mac addresses *****`n"
+    echo $macs
+
+    echo "`n***** network interfaces *****`n"
+    (get-vmswitch 'switch' | format-list -property name, id, netadapterinterfacedescription | out-string).trim()
+
+    if ($nettype -eq 'private') {
+      echo ''
+      (get-netipaddress -interfacealias 'vEthernet (switch)' | `
+        format-list -property ipaddress, interfacealias | out-string).trim()
+      echo ''
+      (get-netnat 'natnet' | format-list -property name, internalipinterfaceaddressprefix | out-string).trim()
+    }
+  }
   net {
     switch ($nettype) {
       'private' { create-private-net -natnet $natnet -zwitch $zwitch -cblock $cidr }
       'public' { create-public-net -zwitch $zwitch -adapter $adapter }
     }
-  }
-  print {
-    echo "***** $etchosts *****"
-    get-content $etchosts | select-string -pattern '^#|^\s*$' -notmatch
   }
   hosts {
     # optionally, update /etc/hosts so you can e.g. `ssh user@master`
@@ -432,11 +448,14 @@ switch -regex ($args) {
   delete {
     get-our-vms | %{ delete-machine -name $_.name }
   }
-  delete-net {
+  delnet {
     switch ($nettype) {
       'private' { delete-private-net -zwitch $zwitch -natnet $natnet }
       'public' { delete-public-net -zwitch $zwitch }
     }
+  }
+  default {
+    echo 'invalid command; try: ./hyperv.ps1 help'
   }
 }
 
