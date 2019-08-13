@@ -235,7 +235,7 @@ function create-machine($zwitch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock,
     if(!$mac) { $mac = create-mac-address }
     get-vmnetworkadapter -vm $vm | set-vmnetworkadapter -staticmacaddress $mac
 
-    set-vmcomport -vmname $vmname -number 2 -path \\.\pipe\dbg1
+    set-vmcomport -vmname $vmname -number 2 -path \\.\pipe\$vmname
   }
   start-vm -name $vmname
 }
