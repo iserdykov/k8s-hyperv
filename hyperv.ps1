@@ -85,167 +85,6 @@ local-hostname: $vmname
 
 # note: resolv.conf hard-set is a workaround for intial setup
 # containerd - https://github.com/kubernetes/kubernetes/issues/76531
-function get-userdata2($vmname) {
-return @"
-#cloud-config
-
-mounts:
-  - [ swap ]
-
-groups:
-  - docker
-
-users:
-  - name: $guestuser
-    ssh_authorized_keys:
-      - $($sshpub)
-    sudo: [ 'ALL=(ALL) NOPASSWD:ALL' ]
-    groups: [ sudo, docker ]
-    shell: /bin/bash
-    # lock_passwd: false # passwd won't work without this
-    # passwd: '`$6`$rounds=4096`$byY3nxArmvpvOrpV`$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
-
-write_files:
-  - path: /etc/resolv.conf
-    content: |
-      nameserver 8.8.4.4
-      nameserver 8.8.8.8
-  - path: /etc/systemd/resolved.conf
-    content: |
-      [Resolve]
-      DNS=8.8.4.4
-      FallbackDNS=8.8.8.8
-  - path: /etc/modules-load.d/bridge.conf
-    content: |
-      br_netfilter
-  - path: /etc/sysctl.d/bridge.conf
-    content: |
-      net.bridge.bridge-nf-call-ip6tables = 1
-      net.bridge.bridge-nf-call-iptables = 1
-      net.bridge.bridge-nf-call-arptables = 1
-  - path: /etc/default/kubelet
-    content: |
-      KUBELET_EXTRA_ARGS=--cgroup-driver=systemd
-  - path: /etc/docker/daemon.json
-    content: |
-      {
-        "exec-opts": ["native.cgroupdriver=systemd"],
-        "log-driver": "json-file",
-        "log-opts": {
-          "max-size": "100m"
-        },
-        "storage-driver": "overlay2"
-      }
-  - path: /etc/containerd/config.toml
-    content: |
-      root = "/var/lib/containerd"
-      state = "/run/containerd"
-      oom_score = 0
-
-      [grpc]
-        address = "/run/containerd/containerd.sock"
-        uid = 0
-        gid = 0
-        max_recv_message_size = 16777216
-        max_send_message_size = 16777216
-
-      [debug]
-        address = ""
-        uid = 0
-        gid = 0
-        level = ""
-
-      [metrics]
-        address = ""
-        grpc_histogram = false
-
-      [cgroup]
-        path = ""
-
-      [plugins]
-        [plugins.cgroups]
-          no_prometheus = false
-        [plugins.cri]
-          stream_server_address = "127.0.0.1"
-          stream_server_port = "0"
-          enable_selinux = false
-          sandbox_image = "k8s.gcr.io/pause:3.1"
-          stats_collect_period = 10
-          systemd_cgroup = true
-          enable_tls_streaming = false
-          max_container_log_line_size = 16384
-          [plugins.cri.containerd]
-            snapshotter = "overlayfs"
-            no_pivot = false
-            [plugins.cri.containerd.default_runtime]
-              runtime_type = "io.containerd.runtime.v1.linux"
-              runtime_engine = ""
-              runtime_root = ""
-            [plugins.cri.containerd.untrusted_workload_runtime]
-              runtime_type = ""
-              runtime_engine = ""
-              runtime_root = ""
-          [plugins.cri.cni]
-            bin_dir = "/opt/cni/bin"
-            conf_dir = "/etc/cni/net.d"
-            conf_template = ""
-          [plugins.cri.registry]
-            [plugins.cri.registry.mirrors]
-              [plugins.cri.registry.mirrors."docker.io"]
-                endpoint = ["https://registry-1.docker.io"]
-          [plugins.cri.x509_key_pair_streaming]
-            tls_cert_file = ""
-            tls_key_file = ""
-        [plugins.diff-service]
-          default = ["walking"]
-        [plugins.linux]
-          shim = "containerd-shim"
-          runtime = "runc"
-          runtime_root = ""
-          no_shim = false
-          shim_debug = false
-        [plugins.opt]
-          path = "/opt/containerd"
-        [plugins.restart]
-          interval = "10s"
-        [plugins.scheduler]
-          pause_threshold = 0.02
-          deletion_threshold = 0
-          mutation_threshold = 100
-          schedule_delay = "0s"
-          startup_delay = "100ms"
-
-apt:
-  sources:
-    kubernetes:
-      source: "deb http://apt.kubernetes.io/ kubernetes-xenial main"
-      keyserver: "hkp://keyserver.ubuntu.com:80"
-      keyid: BA07F4FB
-      file: kubernetes.list
-
-package_upgrade: true
-
-packages:
-  - linux-tools-virtual
-  - linux-cloud-tools-virtual
-  - docker.io
-  - kubelet
-  - kubectl
-  - kubeadm
-
-runcmd:
-  # https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1766857
-  - mkdir -p /usr/libexec/hypervkvpd && ln -s /usr/sbin/hv_get_dns_info /usr/sbin/hv_get_dhcp_info /usr/libexec/hypervkvpd
-  - systemctl enable docker
-  - systemctl enable kubelet
-
-power_state:
-  timeout: 10
-  mode: poweroff
-"@
-}
-
-# crio + docker latest
 function get-userdata($vmname) {
 return @"
 #cloud-config
@@ -284,32 +123,29 @@ write_files:
       net.bridge.bridge-nf-call-ip6tables = 1
       net.bridge.bridge-nf-call-iptables = 1
       net.bridge.bridge-nf-call-arptables = 1
-  - path: /etc/default/kubelet
-    content: |
-      KUBELET_EXTRA_ARGS=--cgroup-driver=systemd
-  - path: /etc/docker/daemon.json
-    content: |
-      {
-        "exec-opts": ["native.cgroupdriver=systemd"],
-        "log-driver": "json-file",
-        "log-opts": {
-          "max-size": "100m"
-        },
-        "storage-driver": "overlay2"
-      }
+      net.ipv4.ip_forward = 1
   - path: /etc/apt/preferences.d/docker-pin
     content: |
       Package: *
       Pin: origin download.docker.com
       Pin-Priority: 600
-  - path: /etc/containers/registries.conf
+  # - path: /etc/docker/daemon.json
+  #   content: |
+  #     {
+  #       "exec-opts": ["native.cgroupdriver=systemd"],
+  #       "log-driver": "json-file",
+  #       "log-opts": {
+  #         "max-size": "100m"
+  #       },
+  #       "storage-driver": "overlay2"
+  #     }
+  - path: /etc/systemd/network/99-default.link
     content: |
-      [registries.search]
-      registries = ['docker.io']
-  - path: /etc/udev/rules.d/01-net-setup-link.rules
-    content: |
-      SUBSYSTEM=="net", ACTION=="add|change", ENV{INTERFACE}=="br-*", PROGRAM="/bin/sleep 0.5"
-      SUBSYSTEM=="net", ACTION=="add|change", ENV{INTERFACE}=="docker[0-9]*", PROGRAM="/bin/sleep 0.5"
+      [Match]
+      Path=/devices/virtual/net/*
+      [Link]
+      NamePolicy=kernel database onboard slot path
+      MACAddressPolicy=none
 
 apt:
   sources:
@@ -322,29 +158,24 @@ apt:
       source: "deb https://download.docker.com/linux/ubuntu bionic stable"
       keyserver: "hkp://keyserver.ubuntu.com:80"
       keyid: 0EBFCD88
-    projectatomic:
-      source: "deb http://ppa.launchpad.net/projectatomic/ppa/ubuntu disco main"
-      keyserver: "hkp://keyserver.ubuntu.com:80"
-      keyid: 7AD8C79D
 
 package_upgrade: true
 
 packages:
   - linux-tools-virtual
   - linux-cloud-tools-virtual
+  # - docker.io
   - docker-ce
   - docker-ce-cli
-  - cri-o-1.13
+  - containerd.io
   - kubelet
   - kubectl
   - kubeadm
 
 runcmd:
-  # https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1766857
   - mkdir -p /usr/libexec/hypervkvpd && ln -s /usr/sbin/hv_get_dns_info /usr/sbin/hv_get_dhcp_info /usr/libexec/hypervkvpd
-  - systemctl enable docker
-  - systemctl enable crio
-  - systemctl enable kubelet
+  - chmod o+r /lib/systemd/system/kubelet.service
+  - echo "sudo tail -f /var/log/syslog" > /home/$guestuser/log
 
 power_state:
   timeout: 10
@@ -691,4 +522,3 @@ switch -regex ($args) {
 echo ''
 
 # License: https://www.apache.org/licenses/LICENSE-2.0
-
