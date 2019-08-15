@@ -2,8 +2,6 @@
 
 Practice real Kubernetes configurations on a local multi-node cluster.
 
-Rationale: Alternatives (i.e. [minikube](https://github.com/kubernetes/minikube/issues?q=is%3Aissue+is%3Aopen+sort%3Acomments-desc), [docker-win](https://github.com/docker/for-win/issues?q=is%3Aissue+is%3Aopen+sort%3Acomments-desc), [docker-mac](https://github.com/docker/for-mac/issues?q=is%3Aissue+is%3Aopen+sort%3Acomments-desc), [multipass](https://github.com/CanonicalLtd/multipass/issues?q=is%3Aissue+is%3Aopen+sort%3Acomments-desc)) are difficult to use and/or do not provide full Kubernetes environment.
-
 Tested on: PowerShell 5.1 on Windows 10 Pro 1903, guest images Ubuntu 18.04 and 19.04.
 
 <sub>For Hyperkit on macOS see [here](https://github.com/youurayy/k8s-hyperkit).</sub>
