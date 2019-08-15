@@ -54,8 +54,11 @@ unknown iface index:
   x /etc/default/networkd-dispatcher  -v -v
   - get into calico pod / get log - see what creates the iface
       (replicate by recreating base pod and launching manually if pod respawn too quick)
-  - try multinode
+  - networkctl list / ifconfig
+  - check host time / ntpd
   - try 18.04
+  - try flannel or weave
+  - try multinode
   - try 16.04
 
 
