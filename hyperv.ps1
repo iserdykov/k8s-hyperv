@@ -384,9 +384,9 @@ function prepare-vhdx-tmpl($imageurl, $srcimg, $vhdxtmpl) {
 }
 
 function download-file($url, $saveto) {
-  # invoke-webrequest $imageurl -usebasicparsing -outfile $srcimg$archive # too slow
+  # invoke-webrequest $url -usebasicparsing -outfile $saveto # too slow
   $wc = new-object net.webclient
-  $wc.downloadfile($url, $saveto)
+  $wc.downloadfile($url, (resolve-path -path $saveto).path)
 }
 
 function update-etc-hosts($cblock) {
