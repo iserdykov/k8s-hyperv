@@ -13,14 +13,26 @@ if (!(test-path $sshpath)) {
 }
 $sshpub = get-content $sshpath -raw
 
+# $distro = 'ubuntu'
+# $imagebase = "https://cloud-images.ubuntu.com/releases/server/$version/release"
+# $sha256file = 'SHA256SUMS'
 # $version=18.04 # kernel 4.15; https://wiki.ubuntu.com/BionicBeaver/ReleaseNotes
-$version=19.04 # kernel 5.0; https://wiki.ubuntu.com/DiscoDingo/ReleaseNotes
-$image = "ubuntu-$version-server-cloudimg-amd64.img"
-$imagebase = "https://cloud-images.ubuntu.com/releases/server/$version/release"
+# $version=19.04 # kernel 5.0; https://wiki.ubuntu.com/DiscoDingo/ReleaseNotes
+# $image = "ubuntu-$version-server-cloudimg-amd64.img"
+# $archive = ""
 
-$imageurl = "$imagebase/$image"
-$srcimg = "$workdir\$image"
-$vhdxtmpl = "$workdir\$($image -replace '^(.+)\.[^.]+$', '$1').vhdx"
+$distro = 'centos'
+$imagebase = "https://cloud.centos.org/centos/7/images"
+$sha256file = 'sha256sum.txt'
+$version = "1907"
+$image = "CentOS-7-x86_64-GenericCloud-$version.raw"
+$archive = ".tar.gz"
+# $image = "CentOS-7-x86_64-GenericCloud-$version.qcow2"
+# $archive = ".xz"
+# $image = "CentOS-7-x86_64-Azure-$version.qcow2"
+# $archive = ""
+# $image = "CentOS-7-x86_64-Azure-$version.vhd"
+# $archive = ""
 
 $nettype = 'private' # private/public
 $zwitch = 'switch' # private or public switch name
@@ -51,6 +63,11 @@ $macs = @(
 )
 
 # ----------------------------------------------------------------------
+
+$imageurl = "$imagebase/$image$archive"
+$srcimg = "$workdir\$image"
+$vhdxtmpl = "$workdir\$($image -replace '^(.+)\.[^.]+$', '$1').vhdx"
+
 
 # switch to the script directory
 cd $PSScriptRoot | out-null
@@ -83,9 +100,53 @@ local-hostname: $vmname
 }
 }
 
+function get-userdata-centos($vmname) {
+return @"
+#cloud-config
+
+mounts:
+  - [ swap ]
+
+groups:
+  - docker
+
+users:
+  - name: $guestuser
+    ssh_authorized_keys:
+      - $($sshpub)
+    sudo: [ 'ALL=(ALL) NOPASSWD:ALL' ]
+    groups: [ sudo, docker ]
+    shell: /bin/bash
+    # lock_passwd: false # passwd won't work without this
+    # passwd: '`$6`$rounds=4096`$byY3nxArmvpvOrpV`$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
+
+
+
+package_upgrade: true
+
+# packages:
+#   - linux-tools-virtual
+#   - linux-cloud-tools-virtual
+#   # - docker.io
+#   - docker-ce
+#   - docker-ce-cli
+#   - containerd.io
+#   - kubelet
+#   - kubectl
+#   - kubeadm
+
+runcmd:
+  - echo "sudo tail -f /var/log/syslog" > /home/$guestuser/log
+
+power_state:
+  timeout: 10
+  mode: poweroff
+"@
+}
+
 # note: resolv.conf hard-set is a workaround for intial setup
 # containerd - https://github.com/kubernetes/kubernetes/issues/76531
-function get-userdata($vmname) {
+function get-userdata-ubuntu($vmname) {
 return @"
 #cloud-config
 
@@ -216,7 +277,7 @@ function produce-iso-contents($vmname, $cblock, $ip) {
   set-content $workdir\$vmname\cidata\meta-data ([byte[]][char[]] `
     "$(get-metadata -vmname $vmname -cblock $cblock -ip $ip)") -encoding byte
   set-content $workdir\$vmname\cidata\user-data ([byte[]][char[]] `
-    "$(get-userdata -vmname $vmname)") -encoding byte
+    "$(&"get-userdata-$distro" -vmname $vmname)") -encoding byte
 }
 
 function make-iso($vmname) {
@@ -297,14 +358,21 @@ function prepare-vhdx-tmpl($imageurl, $srcimg, $vhdxtmpl) {
   if (!(test-path $workdir)) {
     mkdir $workdir | out-null
   }
-  if (!(test-path $srcimg)) {
-    invoke-webrequest $imageurl -usebasicparsing -outfile $srcimg
+  if (!(test-path $srcimg$archive)) {
+    download-file -url $imageurl -saveto $srcimg$archive
   }
 
-  get-item -path $srcimg | %{ write-host 'srcimg:', $_.name, ([math]::round($_.length/1MB, 2)), 'MB' }
+  get-item -path $srcimg$archive | %{ write-host 'srcimg:', $_.name, ([math]::round($_.length/1MB, 2)), 'MB' }
 
-  $hash = shasum256 -shaurl "$imagebase/SHA256SUMS" -diskitem $srcimg -item $image
+  $hash = shasum256 -shaurl "$imagebase/$sha256file" -diskitem $srcimg$archive -item $image$archive
   echo "checksum: $hash"
+
+  if(($archive -eq '.tar.gz') -and (!(test-path $srcimg))) {
+    tar xzf $srcimg$archive -C $workdir
+  }
+  elseif(($archive -eq '.xz') -and (!(test-path $srcimg))) {
+    7z e $srcimg$archive "-o$workdir"
+  }
 
   if (!(test-path $vhdxtmpl)) {
     qemu-img.exe convert $srcimg -O vhdx -o subformat=dynamic $vhdxtmpl
@@ -313,6 +381,12 @@ function prepare-vhdx-tmpl($imageurl, $srcimg, $vhdxtmpl) {
   echo ''
   get-item -path $vhdxtmpl | %{ write-host 'vhxdtmpl:', $_.name, ([math]::round($_.length/1MB, 2)), 'MB' }
   return
+}
+
+function download-file($url, $saveto) {
+  # invoke-webrequest $imageurl -usebasicparsing -outfile $srcimg$archive # too slow
+  $wc = new-object net.webclient
+  $wc.downloadfile($url, $saveto)
 }
 
 function update-etc-hosts($cblock) {
@@ -358,7 +432,7 @@ function get-our-running-vms() {
 }
 
 function shasum256($shaurl, $diskitem, $item) {
-  $pat = "^(\S+)\s\*$([regex]::escape($item))$"
+  $pat = "^(\S+)\s+\*?$([regex]::escape($item))$"
 
   $hash = get-filehash -algo sha256 -path $diskitem | %{ $_.hash}
 
@@ -416,9 +490,10 @@ switch -regex ($args) {
 "@
   }
   ^install$ {
-    choco install kubernetes-cli kubernetes-helm qemu-img
+    choco install 7zip.commandline qemu-img kubernetes-cli kubernetes-helm
   }
   ^config$ {
+    echo "    distro: $distro"
     echo "   workdir: $workdir"
     echo " guestuser: $guestuser"
     echo "   sshpath: $sshpath"

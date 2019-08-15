@@ -36,8 +36,10 @@ code hyperv.ps1
 # display short synopsis for the available commands
 .\hyperv.ps1 help
 
-# performs `choco install kubernetes-cli kubernetes-helm qemu-img`.
+# performs `choco install 7zip.commandline qemu-img kubernetes-cli kubernetes-helm`.
 # you may instead perform these manually / selectively instead.
+# note: 7zip is needed to extract .xz archives
+# note: qemu-img is needed convert images to vhdx
 .\hyperv.ps1 install
 
 # display configured variables (edit the script to change them)
