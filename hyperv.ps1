@@ -194,11 +194,79 @@ write_files:
       [Resolve]
       DNS=8.8.4.4
       FallbackDNS=8.8.8.8
+  - path: /etc/modules-load.d/k8s.conf
+    content: |
+      br_netfilter
+  - path: /etc/sysctl.d/k8s.conf
+    content: |
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.bridge.bridge-nf-call-iptables = 1
+      net.bridge.bridge-nf-call-arptables = 1
+      net.ipv4.ip_forward = 1
+  - path: /etc/docker/daemon.json
+    content: |
+      {
+        "exec-opts": ["native.cgroupdriver=systemd"],
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "100m"
+        },
+        "storage-driver": "overlay2",
+        "storage-opts": [
+          "overlay2.override_kernel_check=true"
+        ]
+      }
+
+package_upgrade: true
+
+yum_repos:
+  docker-ce-stable:
+    name: Docker CE Stable - `$basearch
+    baseurl: https://download.docker.com/linux/centos/7/`$basearch/stable
+    enabled: 1
+    gpgcheck: 1
+    gpgkey: https://download.docker.com/linux/centos/gpg
+    priority: 1
+  kubernetes:
+    name: Kubernetes
+    baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+    enabled: 1
+    gpgcheck: 1
+    repo_gpgcheck: 1
+    gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+    priority: 1
 
 packages:
   - hyperv-daemons
+  - yum-utils
+  - device-mapper-persistent-data
+  - lvm2
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - kubelet
+  - kubeadm
+  - kubectl
 
 runcmd:
+  # https://docs.docker.com/install/linux/docker-ce/centos/
+  - setenforce 0
+  - sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
+  # - sed -i 's/^SELINUX=enforcing$/SELINUX=disable/' /etc/selinux/config
+  - mkdir -p /etc/systemd/system/docker.service.d
+  # https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+  - firewall-cmd --add-port=6443/tcp --permanent
+  - firewall-cmd --add-port=2379-2380/tcp --permanent
+  - firewall-cmd --add-port=10250-10252/tcp --permanent
+  - firewall-cmd --add-port=30000-32767/tcp --permanent
+  - firewall-cmd --reload
+  - systemctl disable firewalld
+  - systemctl daemon-reload
+  #- systemctl enable docker.service
+  - systemctl enable docker
+  - systemctl enable kubelet
+  # https://github.com/kubernetes/kubeadm/issues/954
+  - echo "exclude=kube*" >> /etc/yum.repos.d/kubernetes.repo
   - echo "sudo tail -f /var/log/messages" > /home/$guestuser/log
 
 power_state:
@@ -385,6 +453,7 @@ packages:
 runcmd:
   - mkdir -p /usr/libexec/hypervkvpd && ln -s /usr/sbin/hv_get_dns_info /usr/sbin/hv_get_dhcp_info /usr/libexec/hypervkvpd
   - chmod o+r /lib/systemd/system/kubelet.service
+  - apt-mark hold kubeadm kubelet
   - echo "sudo tail -f /var/log/syslog" > /home/$guestuser/log
 
 power_state:

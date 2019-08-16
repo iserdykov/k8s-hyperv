@@ -5,7 +5,7 @@ sudo tail -f /var/log/syslog
 . log
 
 # CALICO
-sudo kubeadm init --pod-network-cidr=192.168.0.0/16
+sudo kubeadm init --pod-network-cidr=192.168.0.0/16 --apiserver-advertise-address=10.10.0.10
 sudo kubeadm join ...
 
 # kubectl get nodes
