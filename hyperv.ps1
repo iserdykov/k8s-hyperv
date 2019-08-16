@@ -13,26 +13,72 @@ if (!(test-path $sshpath)) {
 }
 $sshpub = get-content $sshpath -raw
 
-# $distro = 'ubuntu'
-# $imagebase = "https://cloud-images.ubuntu.com/releases/server/$version/release"
-# $sha256file = 'SHA256SUMS'
-# $version=18.04 # kernel 4.15; https://wiki.ubuntu.com/BionicBeaver/ReleaseNotes
-# $version=19.04 # kernel 5.0; https://wiki.ubuntu.com/DiscoDingo/ReleaseNotes
-# $image = "ubuntu-$version-server-cloudimg-amd64.img"
-# $archive = ""
+# ISSUE "systemd slice; calico iface"
+$distro = 'ubuntu'
+$generation = 2 # uefi
+$imagebase = "https://cloud-images.ubuntu.com/releases/server/$version/release"
+$sha256file = 'SHA256SUMS'
+$version=18.04 # kernel 4.15; https://wiki.ubuntu.com/BionicBeaver/ReleaseNotes
+$version=19.04 # kernel 5.0; https://wiki.ubuntu.com/DiscoDingo/ReleaseNotes
+$image = "ubuntu-$version-server-cloudimg-amd64.img"
+$archive = ""
 
-$distro = 'centos'
-$imagebase = "https://cloud.centos.org/centos/7/images"
-$sha256file = 'sha256sum.txt'
-$version = "1907"
-$image = "CentOS-7-x86_64-GenericCloud-$version.raw"
-$archive = ".tar.gz"
+# ISSUE "no ethernet interface"
+# $distro = 'centos'
+# $generation = 1 # no uefi
+# $imagebase = "https://cloud.centos.org/centos/7/images"
+# $sha256file = 'sha256sum.txt'
+# $version = "1907"
+# $image = "CentOS-7-x86_64-GenericCloud-$version.raw"
+# $archive = ".tar.gz"
 # $image = "CentOS-7-x86_64-GenericCloud-$version.qcow2"
 # $archive = ".xz"
 # $image = "CentOS-7-x86_64-Azure-$version.qcow2"
 # $archive = ""
 # $image = "CentOS-7-x86_64-Azure-$version.vhd"
 # $archive = ""
+
+# ISSUE "no available network renderers"
+# $distro = 'fedora'
+# $generation = 1
+# $imagebase = "https://download.fedoraproject.org/pub/fedora/linux/releases/30/Cloud/x86_64/images"
+# $sha256file = $null # Fedora-Cloud-30-1.2-x86_64-CHECKSUM
+# $version = "1.2"
+# $image = "Fedora-Cloud-Base-30-$version.x86_64.raw"
+# $archive = ".xz"
+# # $image = "Fedora-Cloud-Base-30-$version.x86_64.vmdk"
+# # $archive = ""
+
+# ISSUE "no available network renderers"
+# $distro = 'fedora'
+# $generation = 1
+# $imagebase = "https://dl.fedoraproject.org/pub/fedora/linux/development/rawhide/Cloud/x86_64/images"
+# $sha256file = $null # Fedora-Cloud-Rawhide-x86_64-20190812.n.0-CHECKSUM
+# $version = "20190812.n.0"
+# $image = "Fedora-Cloud-Base-Rawhide-$version.x86_64.raw"
+# $archive = ".xz"
+
+# ISSUE "doesn't pick up cloud config"
+# $distro = 'opensuse'
+# $generation = 2
+# $imagebase = "https://download.opensuse.org/repositories/Cloud:/Images:/Leap_15.1/images"
+# $sha256file = $null # openSUSE-Leap-15.1-Azure.x86_64-1.0.1-Build12.21.vhdfixed.xz.sha256
+# $version = "1.0.1-Build12.21"
+# $image = "openSUSE-Leap-15.1-Azure.x86_64-$version.vhdfixed"
+# $archive = ".xz"
+
+# ISSUE "no available network renderers"
+# https://bugs.launchpad.net/cloud-init/+bug/1799301
+# https://git.launchpad.net/cloud-init/commit/?id=db50bc0d9
+# $distro = 'kubic'
+# $generation = 2
+# $imagebase = "https://download.opensuse.org/repositories/devel:/kubic:/images/openSUSE_Tumbleweed"
+# $sha256file = $null # openSUSE-MicroOS.x86_64-16.0.0-Kubic-kubeadm-MS-HyperV-Build3.44.vhdx.xz.sha256
+# $version1 = "16.0.0"
+# $version2 = "Build3.44"
+# $image = "openSUSE-MicroOS.x86_64-$version1-Kubic-kubeadm-MS-HyperV-$version2.vhdx"
+# $archive = ".xz"
+
 
 $nettype = 'private' # private/public
 $zwitch = 'switch' # private or public switch name
@@ -89,6 +135,7 @@ local-hostname: $($vmname)
 return @"
 instance-id: id-$vmname
 network-interfaces: |
+  auto eth0
   iface eth0 inet static
   address $($cblock).$($ip)
   network $($cblock).0
@@ -100,7 +147,7 @@ local-hostname: $vmname
 }
 }
 
-function get-userdata-centos($vmname) {
+function get-userdata-kubic($vmname) {
 return @"
 #cloud-config
 
@@ -117,26 +164,28 @@ users:
     sudo: [ 'ALL=(ALL) NOPASSWD:ALL' ]
     groups: [ sudo, docker ]
     shell: /bin/bash
-    # lock_passwd: false # passwd won't work without this
-    # passwd: '`$6`$rounds=4096`$byY3nxArmvpvOrpV`$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
+    lock_passwd: false # passwd won't work without this
+    passwd: '`$6`$rounds=4096`$byY3nxArmvpvOrpV`$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
 
-
-
-package_upgrade: true
-
-# packages:
-#   - linux-tools-virtual
-#   - linux-cloud-tools-virtual
-#   # - docker.io
-#   - docker-ce
-#   - docker-ce-cli
-#   - containerd.io
-#   - kubelet
-#   - kubectl
-#   - kubeadm
+write_files:
+  - path: /etc/resolv.conf
+    content: |
+      nameserver 8.8.4.4
+      nameserver 8.8.8.8
+  - path: /etc/systemd/resolved.conf
+    content: |
+      [Resolve]
+      DNS=8.8.4.4
+      FallbackDNS=8.8.8.8
+  - path: /etc/sysconfig/network-scripts/network-functions
+    content: |
+      # dummy
+  - path: /etc/sysconfig/network-scripts/ifdown-eth
+    content: |
+      # dummy
 
 runcmd:
-  - echo "sudo tail -f /var/log/syslog" > /home/$guestuser/log
+  - echo "sudo journalctl -f" > /home/$guestuser/log
 
 power_state:
   timeout: 10
@@ -317,14 +366,28 @@ function create-machine($zwitch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock,
     produce-iso-contents -vmname $vmname -cblock $cblock -ip $ip
     make-iso -vmname $vmname
 
-    $vm = new-vm -name $vmname -memorystartupbytes $mem -generation 1 `
+    $vm = new-vm -name $vmname -memorystartupbytes $mem -generation $generation `
       -switchname $zwitch -vhdpath $vhdx -path $workdir
-    # set-vmfirmware -vm $vm -enablesecureboot off
+
+    if($generation -eq 2) {
+      set-vmfirmware -vm $vm -enablesecureboot off
+    }
+
     set-vmprocessor -vm $vm -count $cpus
     add-vmdvddrive -vmname $vmname -path $workdir\$vmname\$vmname.iso
 
     if(!$mac) { $mac = create-mac-address }
+
     get-vmnetworkadapter -vm $vm | set-vmnetworkadapter -staticmacaddress $mac
+
+    # if($generation -eq 2) {
+    #   get-vmnetworkadapter -vm $vm | set-vmnetworkadapter -staticmacaddress $mac
+    # }
+    # else {
+    #   echo "creating legacy network adapter"
+    #   get-vmnetworkadapter -vm $vm | remove-vmnetworkadapter
+    #   add-vmnetworkadapter -vm $vm -islegacy $true -switchname $zwitch -staticmacaddress $mac
+    # }
 
     set-vmcomport -vmname $vmname -number 2 -path \\.\pipe\$vmname
   }
@@ -364,8 +427,13 @@ function prepare-vhdx-tmpl($imageurl, $srcimg, $vhdxtmpl) {
 
   get-item -path $srcimg$archive | %{ write-host 'srcimg:', $_.name, ([math]::round($_.length/1MB, 2)), 'MB' }
 
-  $hash = shasum256 -shaurl "$imagebase/$sha256file" -diskitem $srcimg$archive -item $image$archive
-  echo "checksum: $hash"
+  if($sha256file) {
+    $hash = shasum256 -shaurl "$imagebase/$sha256file" -diskitem $srcimg$archive -item $image$archive
+    echo "checksum: $hash"
+  }
+  else {
+    echo "no sha256file specified, skipping integrity ckeck"
+  }
 
   if(($archive -eq '.tar.gz') -and (!(test-path $srcimg))) {
     tar xzf $srcimg$archive -C $workdir
@@ -384,9 +452,10 @@ function prepare-vhdx-tmpl($imageurl, $srcimg, $vhdxtmpl) {
 }
 
 function download-file($url, $saveto) {
-  # invoke-webrequest $url -usebasicparsing -outfile $saveto # too slow
-  $wc = new-object net.webclient
-  $wc.downloadfile($url, (resolve-path -path $saveto).path)
+  echo "downloading $url to $saveto"
+  $progresspreference = 'silentlycontinue'
+  invoke-webrequest $url -usebasicparsing -outfile $saveto # too slow w/ indicator
+  $progresspreference = 'continue'
 }
 
 function update-etc-hosts($cblock) {
