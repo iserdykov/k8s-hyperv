@@ -79,6 +79,23 @@ $archive = ""
 # $image = "openSUSE-MicroOS.x86_64-$version1-Kubic-kubeadm-MS-HyperV-$version2.vhdx"
 # $archive = ".xz"
 
+# ISSUE "no cloud init ?"
+# $distro = 'coreos'
+# $generation = 2
+# $version = '2135.6.0'
+# $imagebase = "https://stable.release.core-os.net/amd64-usr/$version"
+# $sha256file = $null
+# $image = 'coreos_production_hyperv_image.vhd'
+# $archive = '.bz2'
+
+# $distro = 'flatcar'
+# $generation = 2
+# $version = '2191.4.0'
+# $imagebase = "https://stable.release.flatcar-linux.net/amd64-usr/$version"
+# $sha256file = $null
+# $image = 'flatcar_production_hyperv_image.vhd'
+# $archive = '.bz2'
+
 
 $nettype = 'private' # private/public
 $zwitch = 'switch' # private or public switch name
@@ -145,6 +162,46 @@ network-interfaces: |
 local-hostname: $vmname
 "@
 }
+}
+
+function get-userdata-coreos($vmname) {
+return @"
+#cloud-config
+
+mounts:
+  - [ swap ]
+
+groups:
+  - docker
+
+users:
+  - name: $guestuser
+    ssh_authorized_keys:
+      - $($sshpub)
+    sudo: [ 'ALL=(ALL) NOPASSWD:ALL' ]
+    groups: [ sudo, docker ]
+    shell: /bin/bash
+    lock_passwd: false # passwd won't work without this
+    passwd: '`$6`$rounds=4096`$byY3nxArmvpvOrpV`$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
+
+# write_files:
+#   - path: /etc/resolv.conf
+#     content: |
+#       nameserver 8.8.4.4
+#       nameserver 8.8.8.8
+#   - path: /etc/systemd/resolved.conf
+#     content: |
+#       [Resolve]
+#       DNS=8.8.4.4
+#       FallbackDNS=8.8.8.8
+
+# runcmd:
+#   - echo "sudo journalctl -f" > /home/$guestuser/log
+
+power_state:
+  timeout: 10
+  mode: poweroff
+"@
 }
 
 function get-userdata-kubic($vmname) {
@@ -439,6 +496,9 @@ function prepare-vhdx-tmpl($imageurl, $srcimg, $vhdxtmpl) {
     tar xzf $srcimg$archive -C $workdir
   }
   elseif(($archive -eq '.xz') -and (!(test-path $srcimg))) {
+    7z e $srcimg$archive "-o$workdir"
+  }
+  elseif(($archive -eq '.bz2') -and (!(test-path $srcimg))) {
     7z e $srcimg$archive "-o$workdir"
   }
 
