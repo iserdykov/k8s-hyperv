@@ -14,23 +14,23 @@ if (!(test-path $sshpath)) {
 $sshpub = get-content $sshpath -raw
 
 # ISSUE "systemd slice; calico iface"
-$distro = 'ubuntu'
-$generation = 2 # uefi
-$imagebase = "https://cloud-images.ubuntu.com/releases/server/$version/release"
-$sha256file = 'SHA256SUMS'
-$version=18.04 # kernel 4.15; https://wiki.ubuntu.com/BionicBeaver/ReleaseNotes
-$version=19.04 # kernel 5.0; https://wiki.ubuntu.com/DiscoDingo/ReleaseNotes
-$image = "ubuntu-$version-server-cloudimg-amd64.img"
-$archive = ""
+# $distro = 'ubuntu'
+# $generation = 2 # uefi
+# $imagebase = "https://cloud-images.ubuntu.com/releases/server/$version/release"
+# $sha256file = 'SHA256SUMS'
+# $version=18.04 # kernel 4.15; https://wiki.ubuntu.com/BionicBeaver/ReleaseNotes
+# $version=19.04 # kernel 5.0; https://wiki.ubuntu.com/DiscoDingo/ReleaseNotes
+# $image = "ubuntu-$version-server-cloudimg-amd64.img"
+# $archive = ""
 
-# ISSUE "no ethernet interface"
-# $distro = 'centos'
-# $generation = 1 # no uefi
-# $imagebase = "https://cloud.centos.org/centos/7/images"
-# $sha256file = 'sha256sum.txt'
-# $version = "1907"
-# $image = "CentOS-7-x86_64-GenericCloud-$version.raw"
-# $archive = ".tar.gz"
+# ISSUE "n/a"
+$distro = 'centos'
+$generation = 1 # no uefi
+$imagebase = "https://cloud.centos.org/centos/7/images"
+$sha256file = 'sha256sum.txt'
+$version = "1907"
+$image = "CentOS-7-x86_64-GenericCloud-$version.raw"
+$archive = ".tar.gz"
 # $image = "CentOS-7-x86_64-GenericCloud-$version.qcow2"
 # $archive = ".xz"
 # $image = "CentOS-7-x86_64-Azure-$version.qcow2"
@@ -79,7 +79,7 @@ $archive = ""
 # $image = "openSUSE-MicroOS.x86_64-$version1-Kubic-kubeadm-MS-HyperV-$version2.vhdx"
 # $archive = ".xz"
 
-# ISSUE "no cloud init ?"
+# ISSUE "no cloud init support ?"
 # $distro = 'coreos'
 # $generation = 2
 # $version = '2135.6.0'
@@ -162,6 +162,49 @@ network-interfaces: |
 local-hostname: $vmname
 "@
 }
+}
+
+function get-userdata-centos($vmname) {
+return @"
+#cloud-config
+
+mounts:
+  - [ swap ]
+
+groups:
+  - docker
+
+users:
+  - name: $guestuser
+    ssh_authorized_keys:
+      - $($sshpub)
+    sudo: [ 'ALL=(ALL) NOPASSWD:ALL' ]
+    groups: [ sudo, docker ]
+    shell: /bin/bash
+    lock_passwd: false # passwd won't work without this
+    passwd: '`$6`$rounds=4096`$byY3nxArmvpvOrpV`$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
+
+write_files:
+  - path: /etc/resolv.conf
+    content: |
+      nameserver 8.8.4.4
+      nameserver 8.8.8.8
+  - path: /etc/systemd/resolved.conf
+    content: |
+      [Resolve]
+      DNS=8.8.4.4
+      FallbackDNS=8.8.8.8
+
+packages:
+  - hyperv-daemons
+
+runcmd:
+  - echo "sudo tail -f /var/log/messages" > /home/$guestuser/log
+
+power_state:
+  timeout: 10
+  mode: poweroff
+"@
 }
 
 function get-userdata-coreos($vmname) {
