@@ -317,9 +317,9 @@ function create-machine($zwitch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock,
     produce-iso-contents -vmname $vmname -cblock $cblock -ip $ip
     make-iso -vmname $vmname
 
-    $vm = new-vm -name $vmname -memorystartupbytes $mem -generation 2 `
+    $vm = new-vm -name $vmname -memorystartupbytes $mem -generation 1 `
       -switchname $zwitch -vhdpath $vhdx -path $workdir
-    set-vmfirmware -vm $vm -enablesecureboot off
+    # set-vmfirmware -vm $vm -enablesecureboot off
     set-vmprocessor -vm $vm -count $cpus
     add-vmdvddrive -vmname $vmname -path $workdir\$vmname\$vmname.iso
 
