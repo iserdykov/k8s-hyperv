@@ -8,8 +8,15 @@ sudo tail -f /var/log/syslog
 sudo kubeadm init --pod-network-cidr=192.168.0.0/16 --apiserver-advertise-address=10.10.0.10
 sudo kubeadm join ...
 
+# mkdir -p $HOME/.kube
+# sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+# sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
 # kubectl get nodes
 # kubectl get pods --all-namespaces
+# kubectl get jobs --all-namespaces
+# kubectl --namespace kube-system get deploy,sts,svc,configmap,secret -o yaml > system.yaml
+# kubectl --namespace kube-system logs -f etcd-master
 kubectl apply -f https://docs.projectcalico.org/v3.8/manifests/calico.yaml
 
 
