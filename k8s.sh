@@ -1,3 +1,44 @@
+#!/bin/bash
+
+# ./k8s.sh init [calico|flannel|weave] node1 node2
+# 1. keep trying to connect to master and determine that it had finished the cloud init
+# 2. exec `sudo kubeadm init --pod-network-cidr=CIDR` on master
+# 3. setup kubectl on the master
+# 4. setup kubectl on local host + kube alias
+# 5. x
+
+
+#
+#   - call kubeadm init on master (w/ proper cidr)
+#   - if master is not inited yet, keeps re-trying
+#
+
+# TODO:
+#   - add /etc/hosts entries into all nodes upon install
+#   - have the install reboot the nodes, not shutdown
+#   - create a checkfile on second boot (to signify full init)
+
+
+# function initscript-file() {
+#   - path: /home/$guestuser/init.sh
+#     owner: $guestuser`:$guestuser
+#     permissions: '0755'
+#     content: |
+#       sudo kubeadm init --pod-network-cidr=192.168.0.0/16
+#       calico: '192.168.0.0/16'
+#       weave: '10.32.0.0/12'
+#       flannel: '10.244.0.0/16'
+# }
+
+# ./k8s.sh join master
+
+
+  # - kubeadm init --pod-network-cidr=192.168.0.0/16
+  # - mkdir -p /home/$guestuser/.kube
+  # - cp -i /etc/kubernetes/admin.conf /home/$guestuser/.kube/config
+  # - chown $guestuser`:$guestuser /home/$guestuser/.kube/config
+
+
 # **** WORK IN PROGRESS ****
 # this file is a scratchpad - it is not supposed to be run directly
 
@@ -22,7 +63,10 @@ sudo kubeadm join ...
 # kubectl --namespace kube-system logs -f etcd-master
 
 # no Calico 3.8: https://github.com/projectcalico/calico/issues/2712
+# Calico 3.7 doesn't work on ubuntu 19.04 / docker
 kubectl apply -f https://docs.projectcalico.org/v3.7/manifests/calico.yaml
+
+https://raw.githubusercontent.com/coreos/flannel/master/Documentation/k8s-manifests/kube-flannel-rbac.yml
 
 
 

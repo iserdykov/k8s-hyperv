@@ -50,6 +50,7 @@ code hyperv.ps1
       master - create and launch master node
        nodeN - create and launch worker node (node1, node2, ...)
         info - display info about nodes
+        init - initialize k8s
         save - snapshot the VMs
      restore - restore VMs from latest snapshots
         stop - stop the VMs

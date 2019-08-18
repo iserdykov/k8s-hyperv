@@ -19,7 +19,7 @@ switch ($distroConfig) {
   'bionic' {
     $distro = 'ubuntu'
     $generation = 2
-    $version=18.04
+    $version="18.04"
     $imagebase = "https://cloud-images.ubuntu.com/releases/server/$version/release"
     $sha256file = 'SHA256SUMS'
     $image = "ubuntu-$version-server-cloudimg-amd64.img"
@@ -28,7 +28,7 @@ switch ($distroConfig) {
   'disco' {
     $distro = 'ubuntu'
     $generation = 2
-    $version=19.04
+    $version="19.04"
     $imagebase = "https://cloud-images.ubuntu.com/releases/server/$version/release"
     $sha256file = 'SHA256SUMS'
     $image = "ubuntu-$version-server-cloudimg-amd64.img"
@@ -129,8 +129,8 @@ users:
     sudo: [ 'ALL=(ALL) NOPASSWD:ALL' ]
     groups: [ sudo, docker ]
     shell: /bin/bash
-    lock_passwd: false # passwd won't work without this
-    passwd: '`$6`$rounds=4096`$byY3nxArmvpvOrpV`$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
+    # lock_passwd: false # passwd won't work without this
+    # passwd: '`$6`$rounds=4096`$byY3nxArmvpvOrpV`$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
 
 write_files:
   # resolv.conf hard-set is a workaround for intial setup
@@ -226,15 +226,12 @@ runcmd:
   - echo "exclude=kube*" >> /etc/yum.repos.d/kubernetes.repo
   # https://github.com/kubernetes/kubernetes/issues/76531
   - curl -L 'https://github.com/youurayy/runc/releases/download/v1.0.0-rc8-slice-fix/runc-centos.tgz' | tar --backup=numbered -xzf - -C `$(dirname `$(which runc))
-  # - kubeadm init --pod-network-cidr=192.168.0.0/16
-  # - mkdir -p /home/$guestuser/.kube
-  # - cp -i /etc/kubernetes/admin.conf /home/$guestuser/.kube/config
-  # - chown $guestuser`:$guestuser /home/$guestuser/.kube/config
-  # - echo "sudo tail -f /var/log/messages" > /home/$guestuser/log
+  - echo "sudo tail -f /var/log/messages" > /home/$guestuser/log
+  - touch /home/$guestuser/.init-completed
 
-power_state:
-  timeout: 10
-  mode: poweroff
+# power_state:
+#   timeout: 10
+#   mode: reboot
 "@
 }
 
@@ -318,7 +315,6 @@ package_upgrade: true
 packages:
   - linux-tools-virtual
   - linux-cloud-tools-virtual
-  # - docker.io
   - docker-ce
   - docker-ce-cli
   - containerd.io
@@ -334,10 +330,11 @@ runcmd:
   # https://github.com/kubernetes/kubernetes/issues/76531
   - curl -L 'https://github.com/youurayy/runc/releases/download/v1.0.0-rc8-slice-fix/runc-ubuntu.tbz' | tar --backup=numbered -xjf - -C `$(dirname `$(which runc))
   - echo "sudo tail -f /var/log/syslog" > /home/$guestuser/log
+  - touch /home/$guestuser/.init-completed
 
-power_state:
-  timeout: 10
-  mode: poweroff
+# power_state:
+#   timeout: 10
+#   mode: reboot
 "@
 }
 
@@ -491,8 +488,8 @@ function download-file($url, $saveto) {
   $progresspreference = 'continue'
 }
 
-function update-etc-hosts($cblock) {
-@"
+function produce-etc-hosts($cblock) {
+return @"
 
 $($cblock).10 master
 $($cblock).11 node1
@@ -505,9 +502,12 @@ $($cblock).17 node7
 $($cblock).18 node8
 $($cblock).19 node9
 
-"@ | out-file -encoding utf8 -append $etchosts
+"@
+}
 
-get-content $etchosts
+function update-etc-hosts($cblock) {
+  produce-etc-hosts | out-file -encoding utf8 -append $etchosts
+  get-content $etchosts
 }
 
 function create-nodes($num, $cblock) {
@@ -581,6 +581,7 @@ switch -regex ($args) {
       master - create and launch master node
        nodeN - create and launch worker node (node1, node2, ...)
         info - display info about nodes
+        init - initialize k8s
         save - snapshot the VMs
      restore - restore VMs from latest snapshots
         stop - stop the VMs
@@ -668,6 +669,9 @@ switch -regex ($args) {
   }
   ^info$ {
     get-our-vms
+  }
+  ^init$ {
+    # produce-etc-hosts
   }
   ^save$ {
     get-our-vms | checkpoint-vm
