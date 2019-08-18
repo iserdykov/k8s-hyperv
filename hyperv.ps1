@@ -47,8 +47,8 @@ switch ($distroConfig) {
 
 $nettype = 'private' # private/public
 $zwitch = 'switch' # private or public switch name
-$natnet = 'natnet' # private net nat net name
-$adapter = 'Wi-Fi' # public net adapter name
+$natnet = 'natnet' # private net nat net name (privnet only)
+$adapter = 'Wi-Fi' # public net adapter name (pubnet only)
 
 $cpus = 4
 $ram = '4GB'
