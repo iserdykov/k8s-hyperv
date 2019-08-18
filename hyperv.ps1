@@ -13,24 +13,24 @@ if (!(test-path $sshpath)) {
 }
 $sshpub = get-content $sshpath -raw
 
-# ISSUE "systemd slice; calico iface"
-# $distro = 'ubuntu'
-# $generation = 2 # uefi
-# $imagebase = "https://cloud-images.ubuntu.com/releases/server/$version/release"
-# $sha256file = 'SHA256SUMS'
+# ISSUE "n/a"
+$distro = 'ubuntu'
+$generation = 2 # uefi
 # $version=18.04 # kernel 4.15; https://wiki.ubuntu.com/BionicBeaver/ReleaseNotes
-# $version=19.04 # kernel 5.0; https://wiki.ubuntu.com/DiscoDingo/ReleaseNotes
-# $image = "ubuntu-$version-server-cloudimg-amd64.img"
-# $archive = ""
+$version=19.04 # kernel 5.0; https://wiki.ubuntu.com/DiscoDingo/ReleaseNotes
+$imagebase = "https://cloud-images.ubuntu.com/releases/server/$version/release"
+$sha256file = 'SHA256SUMS'
+$image = "ubuntu-$version-server-cloudimg-amd64.img"
+$archive = ""
 
 # ISSUE "n/a"
-$distro = 'centos'
-$generation = 1 # no uefi
-$imagebase = "https://cloud.centos.org/centos/7/images"
-$sha256file = 'sha256sum.txt'
-$version = "1907"
-$image = "CentOS-7-x86_64-GenericCloud-$version.raw"
-$archive = ".tar.gz"
+# $distro = 'centos'
+# $generation = 1 # no uefi
+# $imagebase = "https://cloud.centos.org/centos/7/images"
+# $sha256file = 'sha256sum.txt'
+# $version = "1907"
+# $image = "CentOS-7-x86_64-GenericCloud-$version.raw"
+# $archive = ".tar.gz"
 # $image = "CentOS-7-x86_64-GenericCloud-$version.qcow2"
 # $archive = ".xz"
 # $image = "CentOS-7-x86_64-Azure-$version.qcow2"
@@ -216,6 +216,15 @@ write_files:
           "overlay2.override_kernel_check=true"
         ]
       }
+  - path: /etc/sysconfig/kubelet
+    content: |
+      KUBELET_EXTRA_ARGS=--runtime-cgroups=/systemd/system.slice --kubelet-cgroups=/systemd/system.slice
+  # --cgroup-driver=systemd
+  # - path: /etc/systemd/system/kubelet.service.d/11-cgroups.conf
+  #   content: |
+  #     [Service]
+  #     CPUAccounting=true
+  #     MemoryAccounting=true
 
 package_upgrade: true
 
@@ -262,11 +271,12 @@ runcmd:
   - firewall-cmd --reload
   - systemctl disable firewalld
   - systemctl daemon-reload
-  #- systemctl enable docker.service
   - systemctl enable docker
   - systemctl enable kubelet
   # https://github.com/kubernetes/kubeadm/issues/954
   - echo "exclude=kube*" >> /etc/yum.repos.d/kubernetes.repo
+  # https://github.com/kubernetes/kubernetes/issues/76531
+  - curl -L 'https://github.com/youurayy/runc/releases/download/v1.0.0-rc8-slice-fix/runc-centos.tgz' | tar --backup=numbered -xzf - -C `$(dirname `$(which runc))
   - echo "sudo tail -f /var/log/messages" > /home/$guestuser/log
 
 power_state:
@@ -407,16 +417,16 @@ write_files:
       Package: *
       Pin: origin download.docker.com
       Pin-Priority: 600
-  # - path: /etc/docker/daemon.json
-  #   content: |
-  #     {
-  #       "exec-opts": ["native.cgroupdriver=systemd"],
-  #       "log-driver": "json-file",
-  #       "log-opts": {
-  #         "max-size": "100m"
-  #       },
-  #       "storage-driver": "overlay2"
-  #     }
+  - path: /etc/docker/daemon.json
+    content: |
+      {
+        "exec-opts": ["native.cgroupdriver=systemd"],
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "100m"
+        },
+        "storage-driver": "overlay2"
+      }
   - path: /etc/systemd/network/99-default.link
     content: |
       [Match]
@@ -453,6 +463,7 @@ packages:
 runcmd:
   - mkdir -p /usr/libexec/hypervkvpd && ln -s /usr/sbin/hv_get_dns_info /usr/sbin/hv_get_dhcp_info /usr/libexec/hypervkvpd
   - chmod o+r /lib/systemd/system/kubelet.service
+  # https://github.com/kubernetes/kubeadm/issues/954
   - apt-mark hold kubeadm kubelet
   - echo "sudo tail -f /var/log/syslog" > /home/$guestuser/log
 

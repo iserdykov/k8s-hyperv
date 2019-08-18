@@ -1,11 +1,14 @@
 # **** WORK IN PROGRESS ****
 # this file is a scratchpad - it is not supposed to be run directly
 
+#TODO kubeadm config images pull # if master
+
 sudo tail -f /var/log/syslog
 . log
 
 # CALICO
-sudo kubeadm init --pod-network-cidr=192.168.0.0/16 --apiserver-advertise-address=10.10.0.10
+sudo kubeadm init --pod-network-cidr=192.168.0.0/16
+#--apiserver-advertise-address=10.10.0.10
 sudo kubeadm join ...
 
 # mkdir -p $HOME/.kube
@@ -17,7 +20,9 @@ sudo kubeadm join ...
 # kubectl get jobs --all-namespaces
 # kubectl --namespace kube-system get deploy,sts,svc,configmap,secret -o yaml > system.yaml
 # kubectl --namespace kube-system logs -f etcd-master
-kubectl apply -f https://docs.projectcalico.org/v3.8/manifests/calico.yaml
+
+# no Calico 3.8: https://github.com/projectcalico/calico/issues/2712
+kubectl apply -f https://docs.projectcalico.org/v3.7/manifests/calico.yaml
 
 
 

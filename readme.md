@@ -35,6 +35,28 @@ code hyperv.ps1
 
 # display short synopsis for the available commands
 .\hyperv.ps1 help
+'
+  Usage: .\hyperv.ps1 command+
+
+  Commands:
+
+     install - install basic homebrew packages
+      config - show script config vars
+       print - print etc/hosts, network interfaces and mac addresses
+         net - install private or public network
+       hosts - append node names to etc/hosts
+        macs - generate new set of MAC addresses
+       image - download the VM image
+      master - create and launch master node
+       nodeN - create and launch worker node (node1, node2, ...)
+        info - display info about nodes
+        save - snapshot the VMs
+     restore - restore VMs from latest snapshots
+        stop - stop the VMs
+       start - start the VMs
+      delete - stop VMs and delete the VM files
+      delnet - delete the network
+'
 
 # performs `choco install 7zip.commandline qemu-img kubernetes-cli kubernetes-helm`.
 # you may instead perform these manually / selectively instead.
@@ -113,9 +135,11 @@ ssh node2
 # show info about existing VMs (size, run state)
 .\hyperv.ps1 info
 '
-Name   State   CPUUsage(%) MemoryAssigned(M) Uptime             Status             Version
-----   -----   ----------- ----------------- ------             ------             -------
-master Running 0           1370              4.00:04:10.4700000 Operating normally 9.0
+Name   State   CPUUsage(%) MemoryAssigned(M) Uptime           Status             Version
+----   -----   ----------- ----------------- ------           ------             -------
+master Running 3           5908              00:02:25.5770000 Operating normally 9.0
+node1  Running 8           4096              00:02:22.7680000 Operating normally 9.0
+node2  Running 2           4096              00:02:20.1000000 Operating normally 9.0
 '
 
 # start all installed nodes
