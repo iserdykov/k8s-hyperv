@@ -133,6 +133,7 @@ users:
     passwd: '`$6`$rounds=4096`$byY3nxArmvpvOrpV`$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
 
 write_files:
+  # resolv.conf hard-set is a workaround for intial setup
   - path: /etc/resolv.conf
     content: |
       nameserver 8.8.4.4
@@ -237,8 +238,6 @@ power_state:
 "@
 }
 
-# note: resolv.conf hard-set is a workaround for intial setup
-# containerd - https://github.com/kubernetes/kubernetes/issues/76531
 function get-userdata-ubuntu($vmname) {
 return @"
 #cloud-config
@@ -260,6 +259,7 @@ users:
     # passwd: '`$6`$rounds=4096`$byY3nxArmvpvOrpV`$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
 
 write_files:
+    # resolv.conf hard-set is a workaround for intial setup
   - path: /etc/resolv.conf
     content: |
       nameserver 8.8.4.4
