@@ -13,89 +13,37 @@ if (!(test-path $sshpath)) {
 }
 $sshpub = get-content $sshpath -raw
 
-# ISSUE "n/a"
-$distro = 'ubuntu'
-$generation = 2 # uefi
-# $version=18.04 # kernel 4.15; https://wiki.ubuntu.com/BionicBeaver/ReleaseNotes
-$version=19.04 # kernel 5.0; https://wiki.ubuntu.com/DiscoDingo/ReleaseNotes
-$imagebase = "https://cloud-images.ubuntu.com/releases/server/$version/release"
-$sha256file = 'SHA256SUMS'
-$image = "ubuntu-$version-server-cloudimg-amd64.img"
-$archive = ""
+$distroConfig = 'centos'
 
-# ISSUE "n/a"
-# $distro = 'centos'
-# $generation = 1 # no uefi
-# $imagebase = "https://cloud.centos.org/centos/7/images"
-# $sha256file = 'sha256sum.txt'
-# $version = "1907"
-# $image = "CentOS-7-x86_64-GenericCloud-$version.raw"
-# $archive = ".tar.gz"
-# $image = "CentOS-7-x86_64-GenericCloud-$version.qcow2"
-# $archive = ".xz"
-# $image = "CentOS-7-x86_64-Azure-$version.qcow2"
-# $archive = ""
-# $image = "CentOS-7-x86_64-Azure-$version.vhd"
-# $archive = ""
-
-# ISSUE "no available network renderers"
-# $distro = 'fedora'
-# $generation = 1
-# $imagebase = "https://download.fedoraproject.org/pub/fedora/linux/releases/30/Cloud/x86_64/images"
-# $sha256file = $null # Fedora-Cloud-30-1.2-x86_64-CHECKSUM
-# $version = "1.2"
-# $image = "Fedora-Cloud-Base-30-$version.x86_64.raw"
-# $archive = ".xz"
-# # $image = "Fedora-Cloud-Base-30-$version.x86_64.vmdk"
-# # $archive = ""
-
-# ISSUE "no available network renderers"
-# $distro = 'fedora'
-# $generation = 1
-# $imagebase = "https://dl.fedoraproject.org/pub/fedora/linux/development/rawhide/Cloud/x86_64/images"
-# $sha256file = $null # Fedora-Cloud-Rawhide-x86_64-20190812.n.0-CHECKSUM
-# $version = "20190812.n.0"
-# $image = "Fedora-Cloud-Base-Rawhide-$version.x86_64.raw"
-# $archive = ".xz"
-
-# ISSUE "doesn't pick up cloud config"
-# $distro = 'opensuse'
-# $generation = 2
-# $imagebase = "https://download.opensuse.org/repositories/Cloud:/Images:/Leap_15.1/images"
-# $sha256file = $null # openSUSE-Leap-15.1-Azure.x86_64-1.0.1-Build12.21.vhdfixed.xz.sha256
-# $version = "1.0.1-Build12.21"
-# $image = "openSUSE-Leap-15.1-Azure.x86_64-$version.vhdfixed"
-# $archive = ".xz"
-
-# ISSUE "no available network renderers"
-# https://bugs.launchpad.net/cloud-init/+bug/1799301
-# https://git.launchpad.net/cloud-init/commit/?id=db50bc0d9
-# $distro = 'kubic'
-# $generation = 2
-# $imagebase = "https://download.opensuse.org/repositories/devel:/kubic:/images/openSUSE_Tumbleweed"
-# $sha256file = $null # openSUSE-MicroOS.x86_64-16.0.0-Kubic-kubeadm-MS-HyperV-Build3.44.vhdx.xz.sha256
-# $version1 = "16.0.0"
-# $version2 = "Build3.44"
-# $image = "openSUSE-MicroOS.x86_64-$version1-Kubic-kubeadm-MS-HyperV-$version2.vhdx"
-# $archive = ".xz"
-
-# ISSUE "no cloud init support ?"
-# $distro = 'coreos'
-# $generation = 2
-# $version = '2135.6.0'
-# $imagebase = "https://stable.release.core-os.net/amd64-usr/$version"
-# $sha256file = $null
-# $image = 'coreos_production_hyperv_image.vhd'
-# $archive = '.bz2'
-
-# $distro = 'flatcar'
-# $generation = 2
-# $version = '2191.4.0'
-# $imagebase = "https://stable.release.flatcar-linux.net/amd64-usr/$version"
-# $sha256file = $null
-# $image = 'flatcar_production_hyperv_image.vhd'
-# $archive = '.bz2'
-
+switch ($distroConfig) {
+  'bionic' {
+    $distro = 'ubuntu'
+    $generation = 2
+    $version=18.04
+    $imagebase = "https://cloud-images.ubuntu.com/releases/server/$version/release"
+    $sha256file = 'SHA256SUMS'
+    $image = "ubuntu-$version-server-cloudimg-amd64.img"
+    $archive = ""
+  }
+  'disco' {
+    $distro = 'ubuntu'
+    $generation = 2
+    $version=19.04
+    $imagebase = "https://cloud-images.ubuntu.com/releases/server/$version/release"
+    $sha256file = 'SHA256SUMS'
+    $image = "ubuntu-$version-server-cloudimg-amd64.img"
+    $archive = ""
+  }
+  'centos' {
+    $distro = 'centos'
+    $generation = 1
+    $imagebase = "https://cloud.centos.org/centos/7/images"
+    $sha256file = 'sha256sum.txt'
+    $version = "1907"
+    $image = "CentOS-7-x86_64-GenericCloud-$version.raw"
+    $archive = ".tar.gz"
+  }
+}
 
 $nettype = 'private' # private/public
 $zwitch = 'switch' # private or public switch name
@@ -277,93 +225,11 @@ runcmd:
   - echo "exclude=kube*" >> /etc/yum.repos.d/kubernetes.repo
   # https://github.com/kubernetes/kubernetes/issues/76531
   - curl -L 'https://github.com/youurayy/runc/releases/download/v1.0.0-rc8-slice-fix/runc-centos.tgz' | tar --backup=numbered -xzf - -C `$(dirname `$(which runc))
-  - echo "sudo tail -f /var/log/messages" > /home/$guestuser/log
-
-power_state:
-  timeout: 10
-  mode: poweroff
-"@
-}
-
-function get-userdata-coreos($vmname) {
-return @"
-#cloud-config
-
-mounts:
-  - [ swap ]
-
-groups:
-  - docker
-
-users:
-  - name: $guestuser
-    ssh_authorized_keys:
-      - $($sshpub)
-    sudo: [ 'ALL=(ALL) NOPASSWD:ALL' ]
-    groups: [ sudo, docker ]
-    shell: /bin/bash
-    lock_passwd: false # passwd won't work without this
-    passwd: '`$6`$rounds=4096`$byY3nxArmvpvOrpV`$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
-
-# write_files:
-#   - path: /etc/resolv.conf
-#     content: |
-#       nameserver 8.8.4.4
-#       nameserver 8.8.8.8
-#   - path: /etc/systemd/resolved.conf
-#     content: |
-#       [Resolve]
-#       DNS=8.8.4.4
-#       FallbackDNS=8.8.8.8
-
-# runcmd:
-#   - echo "sudo journalctl -f" > /home/$guestuser/log
-
-power_state:
-  timeout: 10
-  mode: poweroff
-"@
-}
-
-function get-userdata-kubic($vmname) {
-return @"
-#cloud-config
-
-mounts:
-  - [ swap ]
-
-groups:
-  - docker
-
-users:
-  - name: $guestuser
-    ssh_authorized_keys:
-      - $($sshpub)
-    sudo: [ 'ALL=(ALL) NOPASSWD:ALL' ]
-    groups: [ sudo, docker ]
-    shell: /bin/bash
-    lock_passwd: false # passwd won't work without this
-    passwd: '`$6`$rounds=4096`$byY3nxArmvpvOrpV`$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
-
-write_files:
-  - path: /etc/resolv.conf
-    content: |
-      nameserver 8.8.4.4
-      nameserver 8.8.8.8
-  - path: /etc/systemd/resolved.conf
-    content: |
-      [Resolve]
-      DNS=8.8.4.4
-      FallbackDNS=8.8.8.8
-  - path: /etc/sysconfig/network-scripts/network-functions
-    content: |
-      # dummy
-  - path: /etc/sysconfig/network-scripts/ifdown-eth
-    content: |
-      # dummy
-
-runcmd:
-  - echo "sudo journalctl -f" > /home/$guestuser/log
+  # - kubeadm init --pod-network-cidr=192.168.0.0/16
+  # - mkdir -p /home/$guestuser/.kube
+  # - cp -i /etc/kubernetes/admin.conf /home/$guestuser/.kube/config
+  # - chown $guestuser`:$guestuser /home/$guestuser/.kube/config
+  # - echo "sudo tail -f /var/log/messages" > /home/$guestuser/log
 
 power_state:
   timeout: 10
@@ -465,6 +331,7 @@ runcmd:
   - chmod o+r /lib/systemd/system/kubelet.service
   # https://github.com/kubernetes/kubeadm/issues/954
   - apt-mark hold kubeadm kubelet
+  - curl -L 'https://github.com/youurayy/runc/releases/download/v1.0.0-rc8-slice-fix/runc-ubuntu.tbz' | tar --backup=numbered -xjf - -C `$(dirname `$(which runc))
   - echo "sudo tail -f /var/log/syslog" > /home/$guestuser/log
 
 power_state:
@@ -472,24 +339,6 @@ power_state:
   mode: poweroff
 "@
 }
-
-# write_files:
-#   - path: /etc/apt/preferences.d/docker-pin
-#     content: |
-#       Package: *
-#       Pin: origin download.docker.com
-#       Pin-Priority: 600
-# apt:
-#   sources:
-#     docker:
-#       arches: amd64
-#       source: "deb https://download.docker.com/linux/ubuntu bionic stable"
-#       keyserver: "hkp://keyserver.ubuntu.com:80"
-#       keyid: 0EBFCD88
-# packages:
-#  - docker-ce
-#  - docker-ce-cli
-#  - containerd.io
 
 function create-public-net($zwitch, $adapter) {
   new-vmswitch -name $zwitch -allowmanagementos $true -netadaptername $adapter | format-list
