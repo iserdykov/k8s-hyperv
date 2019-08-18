@@ -167,7 +167,9 @@ node2  Running 2           4096              00:02:20.1000000 Operating normally
 .\hyperv.ps1 delnet
 
 # NOTE if Hyper-V stops working after a Windows update, do:
-# Windows Security -> App & Browser control -> Exploit protection settings -> Program settings -> C:\WINDOWS\System32\vmcompute.exe -> Edit-> Code flow guard (CFG) -> uncheck Override system settings -> net stop vmcompute -> net start vmcompute
+# Windows Security -> App & Browser control -> Exploit protection settings -> Program settings ->
+# C:\WINDOWS\System32\vmcompute.exe -> Edit-> Code flow guard (CFG) -> uncheck Override system settings ->
+# net stop vmcompute -> net start vmcompute
 
 ```
 
