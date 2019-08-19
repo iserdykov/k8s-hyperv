@@ -170,13 +170,7 @@ write_files:
       }
   - path: /etc/sysconfig/kubelet
     content: |
-      KUBELET_EXTRA_ARGS=--runtime-cgroups=/systemd/system.slice --kubelet-cgroups=/systemd/system.slice
-  # --cgroup-driver=systemd
-  # - path: /etc/systemd/system/kubelet.service.d/11-cgroups.conf
-  #   content: |
-  #     [Service]
-  #     CPUAccounting=true
-  #     MemoryAccounting=true
+      KUBELET_EXTRA_ARGS=--cgroup-driver=systemd --runtime-cgroups=/systemd/system.slice --kubelet-cgroups=/systemd/system.slice
 
 package_upgrade: true
 
@@ -298,6 +292,9 @@ write_files:
         },
         "storage-driver": "overlay2"
       }
+  - path: /etc/sysconfig/kubelet
+    content: |
+      KUBELET_EXTRA_ARGS=--cgroup-driver=systemd --runtime-cgroups=/systemd/system.slice --kubelet-cgroups=/systemd/system.slice
   - path: /etc/systemd/network/99-default.link
     content: |
       [Match]
