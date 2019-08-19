@@ -168,9 +168,14 @@ write_files:
           "overlay2.override_kernel_check=true"
         ]
       }
-  - path: /etc/sysconfig/kubelet
+  # - path: /etc/sysconfig/kubelet
+  #   content: |
+  #     KUBELET_EXTRA_ARGS=--cgroup-driver=systemd --runtime-cgroups=/systemd/system.slice --kubelet-cgroups=/systemd/system.slice
+  # https://github.com/kubernetes/kubernetes/issues/56850
+  - path: /usr/lib/systemd/system/kubelet.service.d/12-after-docker.conf
     content: |
-      KUBELET_EXTRA_ARGS=--cgroup-driver=systemd --runtime-cgroups=/systemd/system.slice --kubelet-cgroups=/systemd/system.slice
+      [Unit]
+      After=docker.service
 
 package_upgrade: true
 
@@ -292,9 +297,14 @@ write_files:
         },
         "storage-driver": "overlay2"
       }
-  - path: /etc/sysconfig/kubelet
+  # - path: /etc/default/kubelet
+  #   content: |
+  #     KUBELET_EXTRA_ARGS=--cgroup-driver=systemd
+  # https://github.com/kubernetes/kubernetes/issues/56850
+  - path: /etc/systemd/system/kubelet.service.d/12-after-docker.conf
     content: |
-      KUBELET_EXTRA_ARGS=--cgroup-driver=systemd
+      [Unit]
+      After=docker.service
   - path: /etc/systemd/network/99-default.link
     content: |
       [Match]
