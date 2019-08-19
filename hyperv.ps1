@@ -502,7 +502,8 @@ function produce-etc-hosts($cblock, $prefix) {
   $ret = switch ($nettype) {
     'private' {
 @"
-
+#
+$prefix#
 $prefix$($cblock).10 master
 $prefix$($cblock).11 node1
 $prefix$($cblock).12 node2
@@ -513,7 +514,8 @@ $prefix$($cblock).16 node6
 $prefix$($cblock).17 node7
 $prefix$($cblock).18 node8
 $prefix$($cblock).19 node9
-$prefix
+$prefix#
+$prefix#
 "@
     }
     'public' {
