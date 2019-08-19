@@ -5,12 +5,12 @@
 # load average: 1.28, 0.80, 0.72
 # load average: 1.05, 0.61, 0.31
 # load average: 0.22, 0.21, 0.20
-export PODNET=https://docs.projectcalico.org/v3.7/manifests/calico.yaml
-export PODPLUG=192.168.0.0/16
+export PODPLUG=https://docs.projectcalico.org/v3.7/manifests/calico.yaml
+export PODNET=192.168.0.0/16
 
 # FLANNEL + DOCKER
-export PODNET=https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
-export PODPLUG=10.244.0.0/16
+export PODPLUG=https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+export PODNET=10.244.0.0/16
 
 
 
