@@ -68,11 +68,13 @@ code hyperv.ps1
 # display configured variables (edit the script to change them)
 .\hyperv.ps1 config
 '
+   config: bionic
+   distro: ubuntu
   workdir: .\tmp
      user: name
   sshpath: C:\Users\name\.ssh\id_rsa.pub
- imageurl: http://cloud-images.ubuntu.com/releases/server/19.04/release/ubuntu-19.04-server-cloudimg-amd64.img
- vhdxtmpl: tmp\ubuntu-19.04-server-cloudimg-amd64.vhdx
+ imageurl: http://cloud-images.ubuntu.com/releases/server/18.04/release/ubuntu-18.04-server-cloudimg-amd64.img
+ vhdxtmpl: tmp\ubuntu-18.04-server-cloudimg-amd64.vhdx
      cidr: 10.10.0.0/24
    switch: switch
   nettype: private

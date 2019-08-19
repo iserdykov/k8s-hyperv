@@ -13,9 +13,12 @@ if (!(test-path $sshpath)) {
 }
 $sshpub = get-content $sshpath -raw
 
-$distroConfig = 'centos'
+$config = $(get-content -path .\.distro -ea silentlycontinue | out-string).trim()
+if(!$config) {
+  $config = 'centos'
+}
 
-switch ($distroConfig) {
+switch ($config) {
   'bionic' {
     $distro = 'ubuntu'
     $generation = 2
@@ -624,6 +627,7 @@ switch -regex ($args) {
     choco install 7zip.commandline qemu-img kubernetes-cli kubernetes-helm
   }
   ^config$ {
+    echo "    config: $config"
     echo "    distro: $distro"
     echo "   workdir: $workdir"
     echo " guestuser: $guestuser"

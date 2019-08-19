@@ -1,16 +1,38 @@
 #!/bin/bash
 
+# load average: 0.12, 0.45, 0.45
+# load average: 0.10, 0.13, 0.09
+# load average: 0.27, 0.19, 0.12
+export PODNET=https://docs.projectcalico.org/v3.7/manifests/calico.yaml
+
+
+export PODNET=https://raw.githubusercontent.com/coreos/flannel/master/Documentation/k8s-manifests/kube-flannel-rbac.yml
+
 sudo kubeadm init --pod-network-cidr=192.168.0.0/16 && \
 mkdir -p $HOME/.kube && \
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config && \
 sudo chown $(id -u):$(id -g) $HOME/.kube/config && \
-kubectl apply -f https://docs.projectcalico.org/v3.7/manifests/calico.yaml && \
+kubectl apply -f $PODNET && \
 sudo kubeadm token create --print-join-command
 
 
 kubectl get events --all-namespaces && \
 kubectl get pods --all-namespaces && \
 kubectl get nodes
+
+
+# ubuntu
+cat << EOF | sudo tee /etc/systemd/system/kubelet.service.d/12-after-docker.conf
+[Unit]
+After=docker.service
+EOF
+
+# centos
+cat << EOF | sudo tee /usr/lib/systemd/system/kubelet.service.d/12-after-docker.conf
+[Unit]
+After=docker.service
+EOF
+
 
 
 # ./k8s.sh init [calico|flannel|weave] node1 node2
