@@ -294,7 +294,7 @@ write_files:
       }
   - path: /etc/sysconfig/kubelet
     content: |
-      KUBELET_EXTRA_ARGS=--cgroup-driver=systemd --runtime-cgroups=/systemd/system.slice --kubelet-cgroups=/systemd/system.slice
+      KUBELET_EXTRA_ARGS=--cgroup-driver=systemd
   - path: /etc/systemd/network/99-default.link
     content: |
       [Match]
