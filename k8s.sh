@@ -1,18 +1,25 @@
 #!/bin/bash
 
-# load average: 0.12, 0.45, 0.45
-# load average: 0.10, 0.13, 0.09
-# load average: 0.27, 0.19, 0.12
+# CALICO + DOCKER
+# 5752 MB, 2606 MB, 2636 MB, 23% -> 6%, 100 Kbps
+# load average: 1.28, 0.80, 0.72
+# load average: 1.05, 0.61, 0.31
+# load average: 0.22, 0.21, 0.20
 export PODNET=https://docs.projectcalico.org/v3.7/manifests/calico.yaml
+export PODPLUG=192.168.0.0/16
+
+# FLANNEL + DOCKER
+export PODNET=https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+export PODPLUG=10.244.0.0/16
 
 
-export PODNET=https://raw.githubusercontent.com/coreos/flannel/master/Documentation/k8s-manifests/kube-flannel-rbac.yml
 
-sudo kubeadm init --pod-network-cidr=192.168.0.0/16 && \
+
+sudo kubeadm init --pod-network-cidr=$PODNET && \
 mkdir -p $HOME/.kube && \
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config && \
 sudo chown $(id -u):$(id -g) $HOME/.kube/config && \
-kubectl apply -f $PODNET && \
+kubectl apply -f $PODPLUG && \
 sudo kubeadm token create --print-join-command
 
 
