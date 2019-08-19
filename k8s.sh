@@ -1,5 +1,18 @@
 #!/bin/bash
 
+sudo kubeadm init --pod-network-cidr=192.168.0.0/16 && \
+mkdir -p $HOME/.kube && \
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config && \
+sudo chown $(id -u):$(id -g) $HOME/.kube/config && \
+kubectl apply -f https://docs.projectcalico.org/v3.7/manifests/calico.yaml && \
+sudo kubeadm token create --print-join-command
+
+
+kubectl get events --all-namespaces && \
+kubectl get pods --all-namespaces && \
+kubectl get nodes
+
+
 # ./k8s.sh init [calico|flannel|weave] node1 node2
 # 1. keep trying to connect to master and determine that it had finished the cloud init
 # 2. exec `sudo kubeadm init --pod-network-cidr=CIDR` on master
