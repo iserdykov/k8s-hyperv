@@ -328,15 +328,16 @@ packages:
   - kubeadm
 
 runcmd:
+  - systemctl stop kubelet
   - cat /tmp/append-etc-hosts >> /etc/hosts
   - mkdir -p /usr/libexec/hypervkvpd && ln -s /usr/sbin/hv_get_dns_info /usr/sbin/hv_get_dhcp_info /usr/libexec/hypervkvpd
   - chmod o+r /lib/systemd/system/kubelet.service
+  - chmod o+r /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
   # https://github.com/kubernetes/kubeadm/issues/954
   - apt-mark hold kubeadm kubelet
   # https://github.com/kubernetes/kubernetes/issues/76531
   - curl -L 'https://github.com/youurayy/runc/releases/download/v1.0.0-rc8-slice-fix/runc-ubuntu.tbz' | tar --backup=numbered -xjf - -C `$(dirname `$(which runc))
   - echo "sudo tail -f /var/log/syslog" > /home/$guestuser/log
-  - systemctl start docker
   - touch /home/$guestuser/.init-completed
 
 # power_state:
