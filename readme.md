@@ -43,8 +43,8 @@ code hyperv.ps1
      install - install basic homebrew packages
       config - show script config vars
        print - print etc/hosts, network interfaces and mac addresses
-         net - install private or public network
-       hosts - append node names to etc/hosts
+         net - install private or public host network
+       hosts - append private network node names to etc/hosts
         macs - generate new set of MAC addresses
        image - download the VM image
       master - create and launch master node

@@ -143,6 +143,9 @@ write_files:
       [Resolve]
       DNS=8.8.4.4
       FallbackDNS=8.8.8.8
+  - path: /tmp/append-etc-hosts
+    content: |
+      $(produce-etc-hosts($cblock, '      '))
   - path: /etc/modules-load.d/k8s.conf
     content: |
       br_netfilter
@@ -207,6 +210,7 @@ packages:
   - kubectl
 
 runcmd:
+  - cat /tmp/append-etc-hosts >> /etc/hosts
   # https://docs.docker.com/install/linux/docker-ce/centos/
   - setenforce 0
   - sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
@@ -227,6 +231,7 @@ runcmd:
   # https://github.com/kubernetes/kubernetes/issues/76531
   - curl -L 'https://github.com/youurayy/runc/releases/download/v1.0.0-rc8-slice-fix/runc-centos.tgz' | tar --backup=numbered -xzf - -C `$(dirname `$(which runc))
   - echo "sudo tail -f /var/log/messages" > /home/$guestuser/log
+  - systemctl start docker
   - touch /home/$guestuser/.init-completed
 
 # power_state:
@@ -266,6 +271,9 @@ write_files:
       [Resolve]
       DNS=8.8.4.4
       FallbackDNS=8.8.8.8
+  - path: /tmp/append-etc-hosts
+    content: |
+      $(produce-etc-hosts($cblock, '      '))
   - path: /etc/modules-load.d/bridge.conf
     content: |
       br_netfilter
@@ -323,6 +331,7 @@ packages:
   - kubeadm
 
 runcmd:
+  - cat /tmp/append-etc-hosts >> /etc/hosts
   - mkdir -p /usr/libexec/hypervkvpd && ln -s /usr/sbin/hv_get_dns_info /usr/sbin/hv_get_dhcp_info /usr/libexec/hypervkvpd
   - chmod o+r /lib/systemd/system/kubelet.service
   # https://github.com/kubernetes/kubeadm/issues/954
@@ -330,6 +339,7 @@ runcmd:
   # https://github.com/kubernetes/kubernetes/issues/76531
   - curl -L 'https://github.com/youurayy/runc/releases/download/v1.0.0-rc8-slice-fix/runc-ubuntu.tbz' | tar --backup=numbered -xjf - -C `$(dirname `$(which runc))
   - echo "sudo tail -f /var/log/syslog" > /home/$guestuser/log
+  - systemctl start docker
   - touch /home/$guestuser/.init-completed
 
 # power_state:
@@ -488,25 +498,33 @@ function download-file($url, $saveto) {
   $progresspreference = 'continue'
 }
 
-function produce-etc-hosts($cblock) {
-return @"
-
-$($cblock).10 master
-$($cblock).11 node1
-$($cblock).12 node2
-$($cblock).13 node3
-$($cblock).14 node4
-$($cblock).15 node5
-$($cblock).16 node6
-$($cblock).17 node7
-$($cblock).18 node8
-$($cblock).19 node9
-
+function produce-etc-hosts($cblock, $prefix) {
+  $ret = switch ($nettype) {
+    'private' {
+@"
+$prefix
+$prefix$($cblock).10 master
+$prefix$($cblock).11 node1
+$prefix$($cblock).12 node2
+$prefix$($cblock).13 node3
+$prefix$($cblock).14 node4
+$prefix$($cblock).15 node5
+$prefix$($cblock).16 node6
+$prefix$($cblock).17 node7
+$prefix$($cblock).18 node8
+$prefix$($cblock).19 node9
+$prefix
 "@
+    }
+    'public' {
+      ''
+    }
+  }
+  return $ret
 }
 
 function update-etc-hosts($cblock) {
-  produce-etc-hosts | out-file -encoding utf8 -append $etchosts
+  produce-etc-hosts -cblock $cblock -prefix '' | out-file -encoding utf8 -append $etchosts
   get-content $etchosts
 }
 
@@ -574,8 +592,8 @@ switch -regex ($args) {
      install - install basic homebrew packages
       config - show script config vars
        print - print etc/hosts, network interfaces and mac addresses
-         net - install private or public network
-       hosts - append node names to etc/hosts
+         net - install private or public host network
+       hosts - append private network node names to etc/hosts
         macs - generate new set of MAC addresses
        image - download the VM image
       master - create and launch master node
@@ -671,7 +689,13 @@ switch -regex ($args) {
     get-our-vms
   }
   ^init$ {
-    # produce-etc-hosts
+    # TODO
+    # -- requires hosts?
+    # grab our nodes
+    # wait for ~/.init-completed
+    # init master
+    # join nodes
+    # install net
   }
   ^save$ {
     get-our-vms | checkpoint-vm

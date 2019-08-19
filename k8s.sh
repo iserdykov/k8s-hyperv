@@ -57,6 +57,7 @@ sudo kubeadm join ...
 # sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
 # kubectl get nodes
+# kubectl get events --all-namespaces
 # kubectl get pods --all-namespaces
 # kubectl get jobs --all-namespaces
 # kubectl --namespace kube-system get deploy,sts,svc,configmap,secret -o yaml > system.yaml
