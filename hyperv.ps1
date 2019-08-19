@@ -145,7 +145,7 @@ write_files:
       FallbackDNS=8.8.8.8
   - path: /tmp/append-etc-hosts
     content: |
-      $(produce-etc-hosts($cblock, '      '))
+      $(produce-etc-hosts -cblock $cblock -prefix '      ')
   - path: /etc/modules-load.d/k8s.conf
     content: |
       br_netfilter
@@ -273,7 +273,7 @@ write_files:
       FallbackDNS=8.8.8.8
   - path: /tmp/append-etc-hosts
     content: |
-      $(produce-etc-hosts($cblock, '      '))
+      $(produce-etc-hosts -cblock $cblock -prefix '      ')
   - path: /etc/modules-load.d/bridge.conf
     content: |
       br_netfilter
@@ -502,7 +502,7 @@ function produce-etc-hosts($cblock, $prefix) {
   $ret = switch ($nettype) {
     'private' {
 @"
-$prefix
+
 $prefix$($cblock).10 master
 $prefix$($cblock).11 node1
 $prefix$($cblock).12 node2
