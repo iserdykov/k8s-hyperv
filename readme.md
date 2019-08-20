@@ -137,6 +137,7 @@ ssh node2
 
 # perform automated k8s init (will wait for vm to finish init)
 # note: this will checkpoint the nodes just before `kubeadm init`
+# note: this requires your etc/hosts updated
 .\hyperv.ps1 init
 
 # after init, you can do e.g.:
