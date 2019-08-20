@@ -136,7 +136,26 @@ ssh node2
 ...
 
 # perform automated k8s init (will wait for vm to finish init)
+# note: this will checkpoint the nodes just before `kubeadm init`
 .\hyperv.ps1 init
+
+# after init, you can do e.g.:
+hyperctl get pods --all-namespaces
+'
+NAMESPACE     NAME                             READY   STATUS    RESTARTS   AGE
+kube-system   coredns-5c98db65d4-b92p9         1/1     Running   1          5m31s
+kube-system   coredns-5c98db65d4-dvxvr         1/1     Running   1          5m31s
+kube-system   etcd-master                      1/1     Running   1          4m36s
+kube-system   kube-apiserver-master            1/1     Running   1          4m47s
+kube-system   kube-controller-manager-master   1/1     Running   1          4m46s
+kube-system   kube-flannel-ds-amd64-6kj9p      1/1     Running   1          5m32s
+kube-system   kube-flannel-ds-amd64-r87qw      1/1     Running   1          5m7s
+kube-system   kube-flannel-ds-amd64-wdmxs      1/1     Running   1          4m43s
+kube-system   kube-proxy-2p2db                 1/1     Running   1          5m32s
+kube-system   kube-proxy-fg8k2                 1/1     Running   1          5m7s
+kube-system   kube-proxy-rtjqv                 1/1     Running   1          4m43s
+kube-system   kube-scheduler-master            1/1     Running   1          4m38s
+'
 
 # reboot the nodes
 .\hyperv.ps1 reboot
@@ -151,15 +170,6 @@ node1  Running 8           4096              00:02:22.7680000 Operating normally
 node2  Running 2           4096              00:02:20.1000000 Operating normally 9.0
 '
 
-# start all installed nodes
-.\hyperv.ps1 start
-
-# setup kubernetes
-#    master:# sudo kubeadm init
-#    nodeN:# sudo kubeadm join .....
-#    host:# scp ubuntu@master:/etc/kubernetes/admin.conf ~/.kube/config
-#    host:# kubectl ...
-
 # (optional) checkpoint the VMs
 .\hyperv.ps1 save
 
@@ -168,6 +178,9 @@ node2  Running 2           4096              00:02:20.1000000 Operating normally
 
 # shutdown all nodes thru ssh
 .\hyperv.ps1 shutdown
+
+# start all nodes
+.\hyperv.ps1 start
 
 # stop all nodes thru hyper-v
 .\hyperv.ps1 stop

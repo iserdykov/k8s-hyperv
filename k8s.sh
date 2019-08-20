@@ -37,3 +37,10 @@ sudo kubeadm token create --print-join-command
 kubectl get events --all-namespaces && \
 kubectl get pods --all-namespaces && \
 kubectl get nodes
+
+#---------------------------------------------------
+
+hyperctl get events --all-namespaces
+hyperctl get pods --all-namespaces
+hyperctl get nodes
+
