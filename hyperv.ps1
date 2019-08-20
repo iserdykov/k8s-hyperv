@@ -76,6 +76,25 @@ $macs = @(
   '02F7E0C904D0' # node10
 )
 
+$cni = 'flannel'
+
+switch ($cni) {
+  'flannel' {
+    $cniyaml = 'https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml'
+    $cninet = '10.244.0.0/16'
+  }
+  'weave' {
+    $cniyaml = 'https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d "\n")'
+    $cninet = '10.32.0.0/12'
+  }
+  'calico' {
+    $cniyaml = 'https://docs.projectcalico.org/v3.7/manifests/calico.yaml'
+    $cninet = '192.168.0.0/16'
+  }
+}
+
+$sshopts = @('-o LogLevel=ERROR', '-o StrictHostKeyChecking=no', '-o UserKnownHostsFile=/dev/null')
+
 # ----------------------------------------------------------------------
 
 $imageurl = "$imagebase/$image$archive"
@@ -586,6 +605,24 @@ function shasum256($shaurl, $diskitem, $item) {
   return $hash
 }
 
+function got-ctrlc() {
+  if ([console]::KeyAvailable) {
+    $key = [system.console]::readkey($true)
+    if (($key.modifiers -band [consolemodifiers]"control") -and ($key.key -eq "C")) {
+      return $true
+    }
+  }
+  return $false;
+}
+
+function wait-for-node-init($opts, $name) {
+  while ( ! $(ssh $opts master 'ls ~/.init-completed 2> /dev/null') ) {
+    echo "waiting for $name to init..."
+    start-sleep -seconds 5
+    if( got-ctrlc ) { exit 1 }
+  }
+}
+
 echo ''
 
 if($args.count -eq 0) {
@@ -612,7 +649,8 @@ switch -regex ($args) {
       master - create and launch master node
        nodeN - create and launch worker node (node1, node2, ...)
         info - display info about nodes
-        init - initialize k8s
+        init - initialize k8s and setup host kubectl
+      reboot - reboot the nodes
         save - snapshot the VMs
      restore - restore VMs from latest snapshots
         stop - stop the VMs
@@ -644,6 +682,9 @@ switch -regex ($args) {
     echo "      cpus: $cpus"
     echo "       ram: $ram"
     echo "       hdd: $hdd"
+    echo "       cni: $cni"
+    echo "    cninet: $cninet"
+    echo "   cniyaml: $cniyaml"
   }
   ^print$ {
     echo "***** $etchosts *****"
@@ -703,13 +744,57 @@ switch -regex ($args) {
     get-our-vms
   }
   ^init$ {
-    # TODO
-    # -- requires hosts?
-    # grab our nodes
-    # wait for ~/.init-completed
-    # init master
-    # join nodes
-    # install net
+
+    get-our-vms | %{ wait-for-node-init -opts $sshopts -name $_.name }
+
+    echo "all nodes are pre-initialized, making vm snapshots before k8s init..."
+
+    get-our-vms | checkpoint-vm
+
+    $init = "sudo kubeadm init --pod-network-cidr=$cninet && \
+      mkdir -p `$HOME/.kube && \
+      sudo cp -i /etc/kubernetes/admin.conf `$HOME/.kube/config && \
+      sudo chown `$(id -u):`$(id -g) `$HOME/.kube/config && \
+      kubectl apply -f `$(eval echo $cniyaml)"
+
+    echo "executing on master: $init"
+
+    if ( ! $(ssh $sshopts master $init) ) {
+      echo "master init has failed, aborting"
+      exit 1
+    }
+
+    $joincmd = $(ssh $sshopts master 'sudo kubeadm token create --print-join-command')
+
+    get-our-vms | where { $_.name -match "node.+" } |
+      %{
+        $node = $_.name
+        echo "executing on $node`: $joincmd"
+        $(ssh $_.name sudo $joincmd)
+      }
+
+    new-item -itemtype directory -force -path $HOME\.kube | out-null
+    scp $sshopts master:.kube/config $HOME\.kube\config.hyperv
+
+    $bashalias = "alias hyperctl='kubectl --kubeconfig=~/.kube/config.hyperv'"
+    $pwsalias = 'function hyperctl() { kubectl --kubeconfig=$HOME/.kube/config.hyperv $args }'
+    $($pwsalias)
+
+    echo ""
+
+    hyperctl get pods --all-namespaces
+    hyperctl get nodes
+
+    echo ""
+    echo "powershell alias:"
+    echo "   $pwsalias"
+    echo "bash alias:"
+    echo "   $bashalias"
+  }
+  ^reboot$ {
+
+    get-our-vms | %{ $(ssh $sshopts $_.name 'sudo reboot') }
+
   }
   ^save$ {
     get-our-vms | checkpoint-vm

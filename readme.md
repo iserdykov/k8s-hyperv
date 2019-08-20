@@ -50,7 +50,8 @@ code hyperv.ps1
       master - create and launch master node
        nodeN - create and launch worker node (node1, node2, ...)
         info - display info about nodes
-        init - initialize k8s
+        init - initialize k8s and setup host kubectl
+      reboot - reboot the nodes
         save - snapshot the VMs
      restore - restore VMs from latest snapshots
         stop - stop the VMs
@@ -68,20 +69,23 @@ code hyperv.ps1
 # display configured variables (edit the script to change them)
 .\hyperv.ps1 config
 '
-   config: bionic
-   distro: ubuntu
-  workdir: .\tmp
-     user: name
-  sshpath: C:\Users\name\.ssh\id_rsa.pub
- imageurl: http://cloud-images.ubuntu.com/releases/server/18.04/release/ubuntu-18.04-server-cloudimg-amd64.img
- vhdxtmpl: tmp\ubuntu-18.04-server-cloudimg-amd64.vhdx
-     cidr: 10.10.0.0/24
-   switch: switch
-  nettype: private
-   natnet: natnet
-     cpus: 4
-      ram: 4GB
-      hdd: 40GB
+    config: bionic
+    distro: ubuntu
+   workdir: .\tmp
+ guestuser: juraj
+   sshpath: C:\Users\juraj\.ssh\id_rsa.pub
+  imageurl: https://cloud-images.ubuntu.com/releases/server/18.04/release/ubuntu-18.04-server-cloudimg-amd64.img
+  vhdxtmpl: .\tmp\ubuntu-18.04-server-cloudimg-amd64.vhdx
+      cidr: 10.10.0.0/24
+    switch: switch
+   nettype: private
+    natnet: natnet
+      cpus: 4
+       ram: 4GB
+       hdd: 40GB
+       cni: flannel
+    cninet: 10.244.0.0/16
+   cniyaml: https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
 '
 
 # print the current etc/hosts file
@@ -120,7 +124,7 @@ code hyperv.ps1
 # ---- or -----
 .\hyperv.ps1 master node1 node2 nodeN...
 
-# ssh to the nodes and install basic Kubernetes cluster here.
+# ssh to the nodes if necessary (e.g. for manual k8s init)
 # IPs can be found in `etc/hosts`
 # by default, your `.ssh/id_rsa.pub` key was copied into the VMs' ~/.ssh/authorized_keys
 # (note: this works only after `.\hyperv.ps1 hosts`, otherwise use IP addresses)
@@ -130,10 +134,11 @@ ssh node1
 ssh node2
 ...
 
-# note: the initial cloud-config is set to power-down the nodes upon finish.
-# use the 'info' command to see when the nodes finished initializing, and
-# then run them again to setup k8s.
-# you can disable this behavior by commenting out the powerdown in the cloud-init config.
+# perform automated k8s init (will wait for vm to finish init)
+.\hyperv.ps1 init
+
+# reboot the nodes
+.\hyperv.ps1 reboot
 
 # show info about existing VMs (size, run state)
 .\hyperv.ps1 info
