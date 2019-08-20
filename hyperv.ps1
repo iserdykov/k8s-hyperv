@@ -650,7 +650,8 @@ switch -regex ($args) {
        nodeN - create and launch worker node (node1, node2, ...)
         info - display info about nodes
         init - initialize k8s and setup host kubectl
-      reboot - reboot the nodes
+      reboot - soft-reboot the nodes
+    shutdown - soft-shutdown the nodes
         save - snapshot the VMs
      restore - restore VMs from latest snapshots
         stop - stop the VMs
@@ -792,9 +793,10 @@ switch -regex ($args) {
     echo "   $bashalias"
   }
   ^reboot$ {
-
     get-our-vms | %{ $(ssh $sshopts $_.name 'sudo reboot') }
-
+  }
+  ^shutdown$ {
+    get-our-vms | %{ $(ssh $sshopts $_.name 'sudo shutdown -h now') }
   }
   ^save$ {
     get-our-vms | checkpoint-vm

@@ -51,7 +51,8 @@ code hyperv.ps1
        nodeN - create and launch worker node (node1, node2, ...)
         info - display info about nodes
         init - initialize k8s and setup host kubectl
-      reboot - reboot the nodes
+      reboot - soft-reboot the nodes
+    shutdown - soft-shutdown the nodes
         save - snapshot the VMs
      restore - restore VMs from latest snapshots
         stop - stop the VMs
@@ -165,7 +166,10 @@ node2  Running 2           4096              00:02:20.1000000 Operating normally
 # (optional) restore the VMs from the lastest snapshot
 .\hyperv.ps1 restore
 
-# stop all nodes
+# shutdown all nodes thru ssh
+.\hyperv.ps1 shutdown
+
+# stop all nodes thru hyper-v
 .\hyperv.ps1 stop
 
 # delete all nodes' data (will not delete image templates)
