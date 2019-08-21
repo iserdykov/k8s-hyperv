@@ -2,7 +2,7 @@
 
 Practice real Kubernetes configurations on a local multi-node cluster.
 
-Tested on: PowerShell 5.1 on Windows 10 Pro 1903, guest images Ubuntu 18.04 and 19.04.
+Tested on: PowerShell 5.1 on Windows 10 Pro 1903, guest images Centos 1907 and Ubuntu 18.04.
 
 <sub>For Hyperkit on macOS see [here](https://github.com/youurayy/k8s-hyperkit).</sub>
 
@@ -73,8 +73,8 @@ code hyperv.ps1
     config: bionic
     distro: ubuntu
    workdir: .\tmp
- guestuser: juraj
-   sshpath: C:\Users\juraj\.ssh\id_rsa.pub
+ guestuser: name
+   sshpath: C:\Users\name\.ssh\id_rsa.pub
   imageurl: https://cloud-images.ubuntu.com/releases/server/18.04/release/ubuntu-18.04-server-cloudimg-amd64.img
   vhdxtmpl: .\tmp\ubuntu-18.04-server-cloudimg-amd64.vhdx
       cidr: 10.10.0.0/24
@@ -129,7 +129,7 @@ code hyperv.ps1
 # IPs can be found in `etc/hosts`
 # by default, your `.ssh/id_rsa.pub` key was copied into the VMs' ~/.ssh/authorized_keys
 # (note: this works only after `.\hyperv.ps1 hosts`, otherwise use IP addresses)
-# use your host username (which is default), e.g.:
+# use your host username (which is the default), e.g.:
 ssh master
 ssh node1
 ssh node2
