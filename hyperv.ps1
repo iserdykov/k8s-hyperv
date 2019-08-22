@@ -644,7 +644,6 @@ switch -regex ($args) {
        print - print etc/hosts, network interfaces and mac addresses
          net - install private or public host network
        hosts - append private network node names to etc/hosts
-        macs - generate new set of MAC addresses
        image - download the VM image
       master - create and launch master node
        nodeN - create and launch worker node (node1, node2, ...)

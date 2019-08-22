@@ -30,9 +30,6 @@ cd k8s-hyperv
 # enable script run permission
 .\unlock.bat
 
-# examine and customize the script, e.g.:
-code hyperv.ps1
-
 # display short synopsis for the available commands
 .\hyperv.ps1 help
 '
@@ -45,7 +42,6 @@ code hyperv.ps1
        print - print etc/hosts, network interfaces and mac addresses
          net - install private or public host network
        hosts - append private network node names to etc/hosts
-        macs - generate new set of MAC addresses
        image - download the VM image
       master - create and launch master node
        nodeN - create and launch worker node (node1, node2, ...)
@@ -89,36 +85,20 @@ code hyperv.ps1
    cniyaml: https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
 '
 
-# print the current etc/hosts file
+# print relevant configuration - etc/hosts, mac addresses, network interfaces
 .\hyperv.ps1 print
 
-# create a network switch - depending on the config setting (see `.\hyperv.ps1 config`),
-# it will be either private or public network:
-# - private: VMs will be on its own NAT-ed network (will need port fwd for access from outside); IPs are pre-set
-# - public: VMs will be accessible on your LAN (default: `Wi-Fi` adapter); will get IPs from DHCP
-#
-# the default CIDR (10.10.0.0/24) is configured to avoid colliding with the
-# default CIDRs of Kubernetes Pod networking plugins (Calico etc.).
-# default CIDRs to avoid:
-# - Calico (192.168.0.0/16<->192.168.255.255)
-# - Weave Net (10.32.0.0/12<->10.47.255.255)
-# - Flannel (10.244.0.0/16<->10.244.255.255)
+# create a private network for the VMs, as set by the `cidr` variable
 .\hyperv.ps1 net
 
-# update etc/hosts so you can access the VMs by name e.g. `ssh master`
-# (the VMs are created with your username, so no need for `user@`)
-# if you want to repeat this action, you'll first need to remove the previous
-# entries from the etc/hosts file manually
+# appends IP/hostname pairs to the /etc/hosts.
+# (the same hosts entries will also be installed into every node)
 .\hyperv.ps1 hosts
-
-# generate a new set of MAC addresses in a format directly insertable into the `hyperv.ps1` script.
-# the script already contains a default set of MAC addresses.
-.\hyperv.ps1 macs
 
 # download, prepare and cache the VM image templates
 .\hyperv.ps1 image
 
-# launch the nodes (will create the node if it doesn't exist yet)
+# create/launch the nodes
 .\hyperv.ps1 master
 .\hyperv.ps1 node1
 .\hyperv.ps1 nodeN...
@@ -126,18 +106,15 @@ code hyperv.ps1
 .\hyperv.ps1 master node1 node2 nodeN...
 
 # ssh to the nodes if necessary (e.g. for manual k8s init)
-# IPs can be found in `etc/hosts`
 # by default, your `.ssh/id_rsa.pub` key was copied into the VMs' ~/.ssh/authorized_keys
-# (note: this works only after `.\hyperv.ps1 hosts`, otherwise use IP addresses)
-# use your host username (which is the default), e.g.:
+# uses your host username (which is the default), e.g.:
 ssh master
 ssh node1
 ssh node2
 ...
 
-# perform automated k8s init (will wait for vm to finish init)
-# note: this will checkpoint the nodes just before `kubeadm init`
-# note: this requires your etc/hosts updated
+# perform automated k8s init (will wait for VMs to finish init first)
+# (this will checkpoint the nodes just before `kubeadm init`)
 .\hyperv.ps1 init
 
 # after init, you can do e.g.:
@@ -171,10 +148,10 @@ node1  Running 8           4096              00:02:22.7680000 Operating normally
 node2  Running 2           4096              00:02:20.1000000 Operating normally 9.0
 '
 
-# (optional) checkpoint the VMs
+# checkpoint the VMs
 .\hyperv.ps1 save
 
-# (optional) restore the VMs from the lastest snapshot
+# restore the VMs from the lastest snapshot
 .\hyperv.ps1 restore
 
 # shutdown all nodes thru ssh
@@ -194,8 +171,7 @@ node2  Running 2           4096              00:02:20.1000000 Operating normally
 
 # NOTE if Hyper-V stops working after a Windows update, do:
 # Windows Security -> App & Browser control -> Exploit protection settings -> Program settings ->
-# C:\WINDOWS\System32\vmcompute.exe -> Edit-> Code flow guard (CFG) -> uncheck Override system settings ->
-# net stop vmcompute -> net start vmcompute
+# C:\WINDOWS\System32\vmcompute.exe -> Edit-> Code flow guard (CFG) -> uncheck Override system settings -> # net stop vmcompute -> net start vmcompute
 
 ```
 
