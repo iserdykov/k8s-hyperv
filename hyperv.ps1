@@ -1,6 +1,6 @@
 #!/usr/bin/env powershell
+# SPDX-License-Identifier: Apache-2.0
 # For usage overview, read the readme.md at https://github.com/youurayy/k8s-hyperv
-# License: https://www.apache.org/licenses/LICENSE-2.0
 
 # ---------------------------SETTINGS------------------------------------
 
@@ -747,13 +747,13 @@ switch -regex ($args) {
 
     get-our-vms | %{ wait-for-node-init -opts $sshopts -name $_.name }
 
-    echo "all nodes are pre-initialized, making vm snapshots before k8s init..."
+    echo "all nodes are pre-initialized, making VM snapshots before k8s init..."
 
     get-our-vms | checkpoint-vm
 
     $init = "sudo kubeadm init --pod-network-cidr=$cninet && \
       mkdir -p `$HOME/.kube && \
-      sudo cp -i /etc/kubernetes/admin.conf `$HOME/.kube/config && \
+      sudo cp /etc/kubernetes/admin.conf `$HOME/.kube/config && \
       sudo chown `$(id -u):`$(id -g) `$HOME/.kube/config && \
       kubectl apply -f `$(eval echo $cniyaml)"
 
@@ -825,5 +825,3 @@ switch -regex ($args) {
 }
 
 echo ''
-
-# License: https://www.apache.org/licenses/LICENSE-2.0
