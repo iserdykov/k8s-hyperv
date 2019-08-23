@@ -134,7 +134,7 @@ local-hostname: $vmname
 }
 }
 
-function get-userdata-centos($vmname) {
+function get-userdata-shared($cblock) {
 return @"
 #cloud-config
 
@@ -190,9 +190,12 @@ write_files:
           "overlay2.override_kernel_check=true"
         ]
       }
-  # - path: /etc/sysconfig/kubelet
-  #   content: |
-  #     KUBELET_EXTRA_ARGS=--cgroup-driver=systemd --runtime-cgroups=/systemd/system.slice --kubelet-cgroups=/systemd/system.slice
+"@
+}
+
+function get-userdata-centos($cblock) {
+return @"
+$(get-userdata-shared -cblock $cblock)
   # https://github.com/kubernetes/kubernetes/issues/56850
   - path: /usr/lib/systemd/system/kubelet.service.d/12-after-docker.conf
     content: |
@@ -254,79 +257,22 @@ runcmd:
   - echo "sudo tail -f /var/log/messages" > /home/$guestuser/log
   - systemctl start docker
   - touch /home/$guestuser/.init-completed
-
-# power_state:
-#   timeout: 10
-#   mode: reboot
 "@
 }
 
-function get-userdata-ubuntu($vmname) {
+function get-userdata-ubuntu($cblock) {
 return @"
-#cloud-config
-
-mounts:
-  - [ swap ]
-
-groups:
-  - docker
-
-users:
-  - name: $guestuser
-    ssh_authorized_keys:
-      - $($sshpub)
-    sudo: [ 'ALL=(ALL) NOPASSWD:ALL' ]
-    groups: [ sudo, docker ]
-    shell: /bin/bash
-    # lock_passwd: false # passwd won't work without this
-    # passwd: '`$6`$rounds=4096`$byY3nxArmvpvOrpV`$2M4C8fh3ZXx10v91yzipFRng1EFXTRNDE3q9PvxiPc3kC7N/NHG8HiwAvhd7QjMgZAXOsuBD5nOs0AJkByYmf/' # 'test'
-
-write_files:
-    # resolv.conf hard-set is a workaround for intial setup
-  - path: /etc/resolv.conf
-    content: |
-      nameserver 8.8.4.4
-      nameserver 8.8.8.8
-  - path: /etc/systemd/resolved.conf
-    content: |
-      [Resolve]
-      DNS=8.8.4.4
-      FallbackDNS=8.8.8.8
-  - path: /tmp/append-etc-hosts
-    content: |
-      $(produce-etc-hosts -cblock $cblock -prefix '      ')
-  - path: /etc/modules-load.d/bridge.conf
-    content: |
-      br_netfilter
-  - path: /etc/sysctl.d/bridge.conf
-    content: |
-      net.bridge.bridge-nf-call-ip6tables = 1
-      net.bridge.bridge-nf-call-iptables = 1
-      net.bridge.bridge-nf-call-arptables = 1
-      net.ipv4.ip_forward = 1
-  - path: /etc/apt/preferences.d/docker-pin
-    content: |
-      Package: *
-      Pin: origin download.docker.com
-      Pin-Priority: 600
-  - path: /etc/docker/daemon.json
-    content: |
-      {
-        "exec-opts": ["native.cgroupdriver=systemd"],
-        "log-driver": "json-file",
-        "log-opts": {
-          "max-size": "100m"
-        },
-        "storage-driver": "overlay2"
-      }
-  # - path: /etc/default/kubelet
-  #   content: |
-  #     KUBELET_EXTRA_ARGS=--cgroup-driver=systemd
+$(get-userdata-shared -cblock $cblock)
   # https://github.com/kubernetes/kubernetes/issues/56850
   - path: /etc/systemd/system/kubelet.service.d/12-after-docker.conf
     content: |
       [Unit]
       After=docker.service
+  - path: /etc/apt/preferences.d/docker-pin
+    content: |
+      Package: *
+      Pin: origin download.docker.com
+      Pin-Priority: 600
   - path: /etc/systemd/network/99-default.link
     content: |
       [Match]
@@ -371,10 +317,6 @@ runcmd:
   - curl -L 'https://github.com/youurayy/runc/releases/download/v1.0.0-rc8-slice-fix/runc-ubuntu.tbz' | tar --backup=numbered -xjf - -C `$(dirname `$(which runc))
   - echo "sudo tail -f /var/log/syslog" > /home/$guestuser/log
   - touch /home/$guestuser/.init-completed
-
-# power_state:
-#   timeout: 10
-#   mode: reboot
 "@
 }
 
@@ -388,12 +330,16 @@ function create-private-net($natnet, $zwitch, $cblock) {
   new-netnat -name $natnet -internalipinterfaceaddressprefix "$($cblock).0/24" | format-list
 }
 
+function produce-yaml-contents($path, $cblock) {
+  set-content $path ([byte[]][char[]] `
+    "$(&"get-userdata-$distro" -cblock $cblock)`n") -encoding byte
+}
+
 function produce-iso-contents($vmname, $cblock, $ip) {
   md $workdir\$vmname\cidata -ea 0 | out-null
   set-content $workdir\$vmname\cidata\meta-data ([byte[]][char[]] `
     "$(get-metadata -vmname $vmname -cblock $cblock -ip $ip)") -encoding byte
-  set-content $workdir\$vmname\cidata\user-data ([byte[]][char[]] `
-    "$(&"get-userdata-$distro" -vmname $vmname)") -encoding byte
+  produce-yaml-contents -path $workdir\$vmname\cidata\user-data
 }
 
 function make-iso($vmname) {
@@ -446,16 +392,6 @@ function create-machine($zwitch, $vmname, $cpus, $mem, $hdd, $vhdxtmpl, $cblock,
     if(!$mac) { $mac = create-mac-address }
 
     get-vmnetworkadapter -vm $vm | set-vmnetworkadapter -staticmacaddress $mac
-
-    # if($generation -eq 2) {
-    #   get-vmnetworkadapter -vm $vm | set-vmnetworkadapter -staticmacaddress $mac
-    # }
-    # else {
-    #   echo "creating legacy network adapter"
-    #   get-vmnetworkadapter -vm $vm | remove-vmnetworkadapter
-    #   add-vmnetworkadapter -vm $vm -islegacy $true -switchname $zwitch -staticmacaddress $mac
-    # }
-
     set-vmcomport -vmname $vmname -number 2 -path \\.\pipe\$vmname
   }
   start-vm -name $vmname
@@ -639,7 +575,7 @@ switch -regex ($args) {
 
   Commands:
 
-     install - install basic homebrew packages
+     install - install basic chocolatey packages
       config - show script config vars
        print - print etc/hosts, network interfaces and mac addresses
          net - install private or public host network
@@ -818,6 +754,9 @@ switch -regex ($args) {
       'private' { delete-private-net -zwitch $zwitch -natnet $natnet }
       'public' { delete-public-net -zwitch $zwitch }
     }
+  }
+  ^iso$ {
+    produce-yaml-contents -path "$($distro).yaml" -cblock $cidr
   }
   default {
     echo 'invalid command; try: ./hyperv.ps1 help'

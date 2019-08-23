@@ -37,7 +37,7 @@ cd k8s-hyperv
 
   Commands:
 
-     install - install basic homebrew packages
+     install - install basic chocolatey packages
       config - show script config vars
        print - print etc/hosts, network interfaces and mac addresses
          net - install private or public host network
