@@ -339,7 +339,7 @@ function produce-iso-contents($vmname, $cblock, $ip) {
   md $workdir\$vmname\cidata -ea 0 | out-null
   set-content $workdir\$vmname\cidata\meta-data ([byte[]][char[]] `
     "$(get-metadata -vmname $vmname -cblock $cblock -ip $ip)") -encoding byte
-  produce-yaml-contents -path $workdir\$vmname\cidata\user-data
+  produce-yaml-contents -path $workdir\$vmname\cidata\user-data -cblock $cblock
 }
 
 function make-iso($vmname) {
@@ -559,6 +559,10 @@ function wait-for-node-init($opts, $name) {
   }
 }
 
+function hyperctl() {
+  kubectl --kubeconfig=$HOME/.kube/config.hyperv $args
+}
+
 echo ''
 
 if($args.count -eq 0) {
@@ -706,26 +710,28 @@ switch -regex ($args) {
       %{
         $node = $_.name
         echo "executing on $node`: $joincmd"
-        $(ssh $_.name sudo $joincmd)
+        $(ssh $sshopts $_.name sudo $joincmd)
       }
 
     new-item -itemtype directory -force -path $HOME\.kube | out-null
     scp $sshopts master:.kube/config $HOME\.kube\config.hyperv
 
-    $bashalias = "alias hyperctl='kubectl --kubeconfig=~/.kube/config.hyperv'"
-    $pwsalias = 'function hyperctl() { kubectl --kubeconfig=$HOME/.kube/config.hyperv $args }'
-    $($pwsalias)
+    $pwsalias = 'function hyperctl() { kubectl --kubeconfig=$HOME\.kube\config.hyperv $args }'
+    $bashalias = "alias hyperctl='kubectl --kubeconfig=$HOME\.kube\config.hyperv'"
 
-    echo ""
-
+    echo "hyperctl get pods --all-namespaces`n"
     hyperctl get pods --all-namespaces
+    echo ""
+    echo "hyperctl get nodes`n"
     hyperctl get nodes
 
     echo ""
     echo "powershell alias:"
-    echo "   $pwsalias"
+    echo "  write-output '$pwsalias' | out-file -encoding utf8 -append `$profile"
+    echo ""
     echo "bash alias:"
-    echo "   $bashalias"
+    echo "  write-output `"``n$($bashalias.replace('\', '\\'))``n`" | out-file -encoding utf8 -append -nonewline ~\.profile"
+    echo ""
   }
   ^reboot$ {
     get-our-vms | %{ $(ssh $sshopts $_.name 'sudo reboot') }
