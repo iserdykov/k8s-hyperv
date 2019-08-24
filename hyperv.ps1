@@ -203,6 +203,15 @@ $(get-userdata-shared -cblock $cblock)
     content: |
       [Unit]
       After=docker.service
+  # https://github.com/clearlinux/distribution/issues/39
+  - path: /etc/chrony.conf
+    content: |
+      refclock PHC /dev/ptp0 trust poll 2
+      makestep 1 -1
+      maxdistance 16.0
+      #pool pool.ntp.org iburst
+      driftfile /var/lib/chrony/drift
+      logdir /var/log/chrony
 
 package_upgrade: true
 
@@ -237,19 +246,13 @@ packages:
 
 runcmd:
   - echo "sudo tail -f /var/log/messages" > /home/$guestuser/log
+  - systemctl restart chronyd
   - cat /tmp/append-etc-hosts >> /etc/hosts
   # https://docs.docker.com/install/linux/docker-ce/centos/
   - setenforce 0
   - sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
-  # - sed -i 's/^SELINUX=enforcing$/SELINUX=disable/' /etc/selinux/config
   - mkdir -p /etc/systemd/system/docker.service.d
-  # https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
-  - firewall-cmd --add-port=6443/tcp --permanent
-  - firewall-cmd --add-port=2379-2380/tcp --permanent
-  - firewall-cmd --add-port=10250-10252/tcp --permanent
-  - firewall-cmd --add-port=30000-32767/tcp --permanent
-  - firewall-cmd --reload
-  - systemctl disable firewalld
+  - systemctl mask --now firewalld
   - systemctl daemon-reload
   - systemctl enable docker
   - systemctl enable kubelet
