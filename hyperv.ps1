@@ -95,6 +95,8 @@ switch ($cni) {
 
 $sshopts = @('-o LogLevel=ERROR', '-o StrictHostKeyChecking=no', '-o UserKnownHostsFile=/dev/null')
 
+$dockercli = 'https://github.com/StefanScherer/docker-cli-builder/releases/download/19.03.1/docker.exe'
+
 # ----------------------------------------------------------------------
 
 $imageurl = "$imagebase/$image$archive"
@@ -280,7 +282,15 @@ $(get-userdata-shared -cblock $cblock)
       [Link]
       NamePolicy=kernel database onboard slot path
       MACAddressPolicy=none
-
+  # https://github.com/clearlinux/distribution/issues/39
+  - path: /etc/chrony/chrony.conf
+    content: |
+      refclock PHC /dev/ptp0 trust poll 2
+      makestep 1 -1
+      maxdistance 16.0
+      #pool pool.ntp.org iburst
+      driftfile /var/lib/chrony/chrony.drift
+      logdir /var/log/chrony
 apt:
   sources:
     kubernetes:
@@ -298,6 +308,7 @@ package_upgrade: true
 packages:
   - linux-tools-virtual
   - linux-cloud-tools-virtual
+  - chrony
   - docker-ce
   - docker-ce-cli
   - containerd.io
@@ -307,6 +318,8 @@ packages:
 
 runcmd:
   - echo "sudo tail -f /var/log/syslog" > /home/$guestuser/log
+  - systemctl mask --now systemd-timesyncd
+  - systemctl enable --now chrony
   - systemctl stop kubelet
   - cat /tmp/append-etc-hosts >> /etc/hosts
   - mkdir -p /usr/libexec/hypervkvpd && ln -s /usr/sbin/hv_get_dns_info /usr/sbin/hv_get_dhcp_info /usr/libexec/hypervkvpd
@@ -699,7 +712,7 @@ switch -regex ($args) {
 
     echo "executing on master: $init"
 
-    if ( ! $(ssh $sshopts master $init) ) {
+    if ( ! (ssh $sshopts master $init)) {
       echo "master init has failed, aborting"
       exit 1
     }
@@ -710,7 +723,11 @@ switch -regex ($args) {
       %{
         $node = $_.name
         echo "executing on $node`: $joincmd"
-        $(ssh $sshopts $_.name sudo $joincmd)
+
+        if ( ! (ssh $sshopts $node sudo $joincmd)) {
+          echo "$node init has failed, aborting"
+          exit 1
+        }
       }
 
     new-item -itemtype directory -force -path $HOME\.kube | out-null
@@ -760,6 +777,36 @@ switch -regex ($args) {
       'private' { delete-private-net -zwitch $zwitch -natnet $natnet }
       'public' { delete-public-net -zwitch $zwitch }
     }
+  }
+  ^time$ {
+    echo "local: $(date)"
+    get-our-vms | %{
+      $node = $_.name
+      echo ---------------------$node
+      # ssh $sshopts $node "date ; if which chronyc > /dev/null; then sudo chronyc makestep ; date; fi"
+      ssh $sshopts $node "date"
+    }
+  }
+  ^track$ {
+    get-our-vms | %{
+      $node = $_.name
+      echo ---------------------$node
+      ssh $sshopts $node "date ; sudo chronyc tracking"
+    }
+  }
+  ^docker$ {
+    $saveto = "C:\ProgramData\chocolatey\bin\docker.exe"
+    if (!(test-path $saveto)) {
+      echo "installing docker cli..."
+      download-file -url $dockercli -saveto $saveto
+    }
+    echo ""
+    echo "powershell:"
+    echo "  write-output '`$env:DOCKER_HOST = `"ssh://master`"' | out-file -encoding utf8 -append `$profile"
+    echo ""
+    echo "bash:"
+    echo "  write-output `"``nexport DOCKER_HOST='ssh://master'``n`" | out-file -encoding utf8 -append -nonewline ~\.profile"
+    echo ""
   }
   ^iso$ {
     produce-yaml-contents -path "$($distro).yaml" -cblock $cidr
