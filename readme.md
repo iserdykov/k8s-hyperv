@@ -1,6 +1,6 @@
 ### Project has moved to: https://github.com/youurayy/hyperctl
 
-# Kubernetes Cluster on Hyper-V
+# ~Kubernetes Cluster on Hyper-V~
 
 Practice real Kubernetes configurations on a local multi-node cluster.
 
